@@ -1,0 +1,19 @@
+{
+  "name": "web-builder-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for building production-quality client websites with automated testing and deployment",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "web-builder-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "keywords": ["mcp", "web-development", "ai", "cloudflare", "automation"],
+  "author": "Rod Bland",
+  "license": "MIT"
+}
