@@ -4,6 +4,8 @@ import { homedir } from "os";
 import { ConfigSchema } from "./types.js";
 import type { Config } from "./types.js";
 
+export type { Config };
+
 const DEFAULT_CONFIG_DIR = join(homedir(), ".web-builder-mcp");
 
 export async function loadConfig(configDir: string = DEFAULT_CONFIG_DIR): Promise<Config> {
