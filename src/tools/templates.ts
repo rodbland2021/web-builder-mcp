@@ -36,7 +36,7 @@ export function escapeJsString(str: string): string {
  * Prevents `</script>` sequences in JSON values from closing the script block.
  */
 export function safeJsonForScript(json: string): string {
-  return json.replace(/<\//g, "<\\/");
+  return json.replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 }
 
 export interface StylesOpts {
