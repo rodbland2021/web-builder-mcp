@@ -50,14 +50,16 @@ export function adaCheck(siteDir: string): AdaCheckResult {
   }
 
   // --- Critical: Skip-to-content link ---
+  // Matches href="#main", "#main-content", "#content", "#skip"
+  // with class "skip-link", "skip-to-content", "skiplink", or text containing "skip"
   const hasSkipLink =
-    /href\s*=\s*["']#(?:main[-_]?content|content|skip)["']/i.test(allHtml) &&
-    /skip[-_]?to[-_]?content|skip.*content|skiplink/i.test(allHtml);
+    /href\s*=\s*["']#(?:main[-_]?content|main|content|skip)["']/i.test(allHtml) &&
+    /skip[-_]?link|skip[-_]?to[-_]?content|skip.*content|skiplink/i.test(allHtml);
   if (!hasSkipLink) {
     violations.push({
       severity: "critical",
       description: "Missing skip-to-content link",
-      suggestion: 'Add <a href="#main-content" class="skip-to-content">Skip to content</a> as the first element in <body>',
+      suggestion: 'Add <a href="#main" class="skip-link">Skip to content</a> as the first element in <body>',
     });
   }
 
@@ -74,12 +76,20 @@ export function adaCheck(siteDir: string): AdaCheckResult {
     const idMatch = input.match(/\bid\s*=\s*["']([^"']*)["']/i);
     if (!idMatch) {
       // No id — check for wrapping label by looking at surrounding context
-      violations.push({
-        severity: "serious",
-        description: "Form input missing id attribute — cannot be associated with a <label>",
-        element: input,
-        suggestion: 'Add a unique id to the input and a matching <label for="id"> element',
-      });
+      // Search for <label...>...<input...>...</label> pattern containing this input
+      const escapedInput = input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const wrappedByLabel = new RegExp(
+        `<label[^>]*>[\\s\\S]*?${escapedInput}[\\s\\S]*?<\\/label>`,
+        "i"
+      ).test(allHtml);
+      if (!wrappedByLabel) {
+        violations.push({
+          severity: "serious",
+          description: "Form input missing id attribute — cannot be associated with a <label>",
+          element: input,
+          suggestion: 'Add a unique id to the input and a matching <label for="id"> element',
+        });
+      }
       continue;
     }
     const inputId = idMatch[1];

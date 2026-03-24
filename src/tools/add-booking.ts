@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { generateHtmlPage } from "./templates.js";
 
 export const AddBookingInput = {
   siteDir: z.string().describe("Absolute path to existing site directory"),
@@ -338,21 +339,43 @@ export function addBooking(input: AddBookingInputType): AddBookingResult {
     )
     .join("\n");
 
-  const bookHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Book an appointment online">
-  <title>Book — ${businessName}</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="book.css">
-</head>
-<body>
-  <a href="#main" class="skip-link">Skip to content</a>
+  // Detect existing nav links and business name from index.html
+  let bookNavLinks: Array<{ href: string; label: string }> | undefined;
+  let bookBusinessName: string | undefined;
+  let bookLang: string | undefined;
+  const bookIndexPath = join(siteDir, "index.html");
+  if (existsSync(bookIndexPath)) {
+    try {
+      const indexContent = readFileSync(bookIndexPath, "utf-8");
+      const logoMatch = indexContent.match(/class="nav-logo">([^<]+)</);
+      if (logoMatch) bookBusinessName = logoMatch[1];
+      const langMatch = indexContent.match(/<html[^>]+lang="([^"]+)"/);
+      if (langMatch) bookLang = langMatch[1];
+      const linkMatches = [...indexContent.matchAll(/class="nav-links"[\s\S]*?<\/ul>/g)];
+      if (linkMatches.length > 0) {
+        const navHtml = linkMatches[0][0];
+        const hrefMatches = [...navHtml.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)];
+        if (hrefMatches.length > 0) {
+          bookNavLinks = hrefMatches.map((m) => ({ href: m[1], label: m[2] }));
+        }
+      }
+    } catch {
+      // Ignore read errors
+    }
+  }
 
-  <main id="main">
-    <div class="booking-hero">
+  const bookingLdJson = JSON.stringify(
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: `Book an Appointment — ${bookBusinessName ?? businessName}`,
+      description: `Book an appointment online with ${bookBusinessName ?? businessName}`,
+    },
+    null,
+    2
+  );
+
+  const bookBodyContent = `    <div class="booking-hero">
       <div class="container">
         <h1>Book an Appointment</h1>
         <p>${businessName} — online booking in minutes.</p>
@@ -389,7 +412,7 @@ ${serviceOptionHtml}
             <div id="step-2" class="booking-step">
               <h2>Choose a date</h2>
               <div id="date-grid" class="date-grid"></div>
-              <h2 style="margin-top:var(--spacing-xl)">Choose a time</h2>
+              <h2 class="mt-xl">Choose a time</h2>
               <div id="time-grid" class="time-grid"></div>
               <div class="step-nav">
                 <button type="button" class="btn btn-outline" data-back>&larr; Back</button>
@@ -443,17 +466,27 @@ ${serviceOptionHtml}
           <div class="success-icon">✅</div>
           <h2>Booking confirmed!</h2>
           <p>We'll send a confirmation to your email shortly.</p>
-          <a href="index.html" class="btn btn-primary" style="margin-top:var(--spacing-xl)">Back to home</a>
+          <a href="index.html" class="btn btn-primary mt-xl">Back to home</a>
         </div>
 
       </div>
     </section>
-  </main>
 
-  <script src="site.js" defer></script>
-  <script src="book.js" defer></script>
-</body>
-</html>`;
+    <script type="application/ld+json">
+${bookingLdJson}
+    </script>`;
+
+  const bookHtml = generateHtmlPage({
+    title: `Book — ${bookBusinessName ?? businessName}`,
+    bodyContent: bookBodyContent,
+    lang: bookLang,
+    description: `Book an appointment online with ${bookBusinessName ?? businessName}`,
+    businessName: bookBusinessName ?? businessName,
+    navLinks: bookNavLinks,
+    extraCss: ["book.css"],
+    extraJs: ["book.js"],
+    canonicalUrl: "book.html",
+  });
   writeFileSync(join(siteDir, "book.html"), bookHtml, "utf-8");
   files.push("book.html");
 

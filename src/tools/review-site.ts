@@ -63,10 +63,11 @@ export function reviewSite(siteDir: string): ReviewSiteResult {
 
   // --- A11y checks ---
 
-  // Skip-to-content link
+  // Skip-to-content link — matches href="#main", "#main-content", "#content", "#skip"
+  // with class "skip-link", "skip-to-content", "skiplink", or text containing "skip"
   const hasSkipLink =
-    /href\s*=\s*["']#(?:main[-_]?content|content|skip)["']/i.test(allHtml) &&
-    /skip[-_]?to[-_]?content|skip.*content|skiplink/i.test(allHtml);
+    /href\s*=\s*["']#(?:main[-_]?content|main|content|skip)["']/i.test(allHtml) &&
+    /skip[-_]?link|skip[-_]?to[-_]?content|skip.*content|skiplink/i.test(allHtml);
   checks.push({
     name: "skip-to-content",
     passed: hasSkipLink,
@@ -129,9 +130,13 @@ export function reviewSite(siteDir: string): ReviewSiteResult {
 
   // --- Content checks ---
 
-  // Dynamic copyright year
+  // Dynamic copyright year — detect inline JS call OR a span.copyright-year element
+  // that site.js populates dynamically via querySelectorAll('.copyright-year')
+  const { jsFiles } = readSiteFiles(siteDir);
+  const allJs = jsFiles.map((f) => f.content).join("\n");
   const hasDynamicYear =
-    /new Date\(\)\.getFullYear\(\)|getFullYear\(\)/.test(allHtml);
+    /new Date\(\)\.getFullYear\(\)|getFullYear\(\)/.test(allHtml) ||
+    (/copyright-year/.test(allHtml) && /getFullYear\(\)/.test(allJs));
   checks.push({
     name: "dynamic-copyright-year",
     passed: hasDynamicYear,

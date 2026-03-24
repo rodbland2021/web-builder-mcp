@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { generateHtmlPage } from "./templates.js";
 
 export const AddShopInput = {
   siteDir: z.string().describe("Absolute path to existing site directory"),
@@ -429,23 +430,63 @@ export function addShop(input: AddShopInputType): AddShopResult {
     )
     .join("\n");
 
-  const shopHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Shop our products">
-  <title>Shop</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="shop.css">
-</head>
-<body>
-  <a href="#main" class="skip-link">Skip to content</a>
+  // LD+JSON with Product items
+  const shopLdJson = JSON.stringify(
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Shop",
+      itemListElement: productsWithIds.map((p, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        item: {
+          "@type": "Product",
+          name: p.name,
+          description: p.description ?? "",
+          offers: {
+            "@type": "Offer",
+            price: p.price,
+            priceCurrency: currency,
+          },
+        },
+      })),
+    },
+    null,
+    2
+  );
 
-  <div class="cart-overlay" aria-hidden="true"></div>
+  // Detect existing nav links from index.html if present
+  let shopNavLinks: Array<{ href: string; label: string }> | undefined;
+  let shopBusinessName: string | undefined;
+  let shopLang: string | undefined;
+  const indexPath = join(siteDir, "index.html");
+  if (existsSync(indexPath)) {
+    try {
+      const indexContent = readFileSync(indexPath, "utf-8");
+      const logoMatch = indexContent.match(/class="nav-logo">([^<]+)</);
+      if (logoMatch) shopBusinessName = logoMatch[1];
+      const langMatch = indexContent.match(/<html[^>]+lang="([^"]+)"/);
+      if (langMatch) shopLang = langMatch[1];
+      // Extract nav links from existing page
+      const linkMatches = [...indexContent.matchAll(/class="nav-links"[\s\S]*?<\/ul>/g)];
+      if (linkMatches.length > 0) {
+        const navHtml = linkMatches[0][0];
+        const hrefMatches = [...navHtml.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)];
+        if (hrefMatches.length > 0) {
+          shopNavLinks = hrefMatches.map((m) => ({ href: m[1], label: m[2] }));
+        }
+      }
+    } catch {
+      // Ignore read errors
+    }
+  }
 
-  <main id="main">
-    <div class="shop-hero">
+  // Ensure shop is in nav links
+  if (shopNavLinks && !shopNavLinks.some((l) => l.href === "shop.html")) {
+    shopNavLinks.push({ href: "shop.html", label: "Shop" });
+  }
+
+  const shopBodyContent = `    <div class="shop-hero">
       <div class="container">
         <h1>Our Shop</h1>
         <p>Browse our full range of products.</p>
@@ -457,32 +498,44 @@ export function addShop(input: AddShopInputType): AddShopResult {
 ${productCards}
       </div>
     </div>
-  </main>
 
-  <!-- Cart drawer -->
-  <aside class="cart-drawer" role="dialog" aria-labelledby="cart-heading" aria-modal="true">
-    <div class="cart-drawer-header">
-      <h2 id="cart-heading">Your cart</h2>
-      <button id="cart-close" class="cart-close" aria-label="Close cart">&times;</button>
-    </div>
-    <div id="cart-items" class="cart-items">
-      <p class="cart-empty">Your cart is empty.</p>
-    </div>
-    <div class="cart-footer">
-      <div class="cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
-      <button id="checkout-btn" class="btn-checkout">Checkout</button>
-    </div>
-  </aside>
+    <!-- Cart drawer -->
+    <aside class="cart-drawer" role="dialog" aria-labelledby="cart-heading" aria-modal="true">
+      <div class="cart-drawer-header">
+        <h2 id="cart-heading">Your cart</h2>
+        <button id="cart-close" class="cart-close" aria-label="Close cart">&times;</button>
+      </div>
+      <div id="cart-items" class="cart-items">
+        <p class="cart-empty">Your cart is empty.</p>
+      </div>
+      <div class="cart-footer">
+        <div class="cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
+        <button id="checkout-btn" class="btn-checkout">Checkout</button>
+      </div>
+    </aside>
 
-  <!-- Floating cart button -->
-  <button id="cart-btn" class="cart-btn" aria-label="Open cart">
-    🛒 Cart <span id="cart-count" class="cart-count">0</span>
-  </button>
+    <!-- Floating cart button -->
+    <button id="cart-btn" class="cart-btn" aria-label="Open cart">
+      🛒 Cart <span id="cart-count" class="cart-count">0</span>
+    </button>
 
-  <script src="site.js" defer></script>
-  <script src="shop.js" defer></script>
-</body>
-</html>`;
+    <div class="cart-overlay" aria-hidden="true"></div>
+
+    <script type="application/ld+json">
+${shopLdJson}
+    </script>`;
+
+  const shopHtml = generateHtmlPage({
+    title: `Shop — ${shopBusinessName ?? "Shop"}`,
+    bodyContent: shopBodyContent,
+    lang: shopLang,
+    description: "Shop our products",
+    businessName: shopBusinessName,
+    navLinks: shopNavLinks,
+    extraCss: ["shop.css"],
+    extraJs: ["shop.js"],
+    canonicalUrl: "shop.html",
+  });
   writeFileSync(join(siteDir, "shop.html"), shopHtml, "utf-8");
   files.push("shop.html");
 

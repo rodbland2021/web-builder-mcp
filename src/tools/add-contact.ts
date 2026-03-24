@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { generateHtmlPage } from "./templates.js";
 
 export const AddContactInput = {
   siteDir: z.string().describe("Absolute path to existing site directory"),
@@ -26,101 +27,58 @@ export function addContact(input: AddContactInputType): AddContactResult {
   const files: string[] = [];
   mkdirSync(join(siteDir, "workers", "contact-api"), { recursive: true });
 
+  // Detect existing nav links and business name from index.html
+  let contactNavLinks: Array<{ href: string; label: string }> | undefined;
+  let contactBusinessName: string | undefined;
+  let contactLang: string | undefined;
+  const contactIndexPath = join(siteDir, "index.html");
+  if (existsSync(contactIndexPath)) {
+    try {
+      const indexContent = readFileSync(contactIndexPath, "utf-8");
+      const logoMatch = indexContent.match(/class="nav-logo">([^<]+)</);
+      if (logoMatch) contactBusinessName = logoMatch[1];
+      const langMatch = indexContent.match(/<html[^>]+lang="([^"]+)"/);
+      if (langMatch) contactLang = langMatch[1];
+      const linkMatches = [...indexContent.matchAll(/class="nav-links"[\s\S]*?<\/ul>/g)];
+      if (linkMatches.length > 0) {
+        const navHtml = linkMatches[0][0];
+        const hrefMatches = [...navHtml.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)];
+        if (hrefMatches.length > 0) {
+          contactNavLinks = hrefMatches.map((m) => ({ href: m[1], label: m[2] }));
+        }
+      }
+    } catch {
+      // Ignore read errors
+    }
+  }
+
+  const effectiveName = contactBusinessName ?? businessName;
+
+  const contactLdJson = JSON.stringify(
+    {
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      name: `Contact ${effectiveName}`,
+      description: `Contact ${effectiveName}`,
+    },
+    null,
+    2
+  );
+
   // --- contact.html ---
-  const contactHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Contact ${businessName}">
-  <title>Contact — ${businessName}</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <a href="#main" class="skip-link">Skip to content</a>
-
-  <main id="main">
-    <div class="page-header">
-      <div class="container">
-        <h1>Contact ${businessName}</h1>
-        <p>We'd love to hear from you. Send us a message and we'll get back to you shortly.</p>
-      </div>
-    </div>
-
-    <section class="section">
-      <div class="container">
-        <div style="max-width:600px;margin-inline:auto;">
-          <p class="required-note"><span class="required-star">*</span> Required fields</p>
-          <form id="contact-form" novalidate>
-            <div class="form-group">
-              <label for="contact-name">Full name <span class="required-star" aria-label="required">*</span></label>
-              <input
-                type="text"
-                id="contact-name"
-                name="name"
-                required
-                autocomplete="name"
-                placeholder="Your full name"
-                aria-required="true"
-              >
-            </div>
-            <div class="form-group">
-              <label for="contact-email">Email address <span class="required-star" aria-label="required">*</span></label>
-              <input
-                type="email"
-                id="contact-email"
-                name="email"
-                required
-                autocomplete="email"
-                placeholder="you@example.com"
-                aria-required="true"
-              >
-            </div>
-            <div class="form-group">
-              <label for="contact-phone">Phone number</label>
-              <input
-                type="tel"
-                id="contact-phone"
-                name="phone"
-                autocomplete="tel"
-                placeholder="Optional"
-              >
-            </div>
-            <div class="form-group">
-              <label for="contact-message">Message <span class="required-star" aria-label="required">*</span></label>
-              <textarea
-                id="contact-message"
-                name="message"
-                required
-                rows="5"
-                placeholder="How can we help you?"
-                aria-required="true"
-              ></textarea>
-            </div>
-            <div id="contact-error" role="alert" style="color:#dc2626;margin-bottom:var(--spacing-md);display:none;"></div>
-            <div id="contact-success" role="status" style="color:#16a34a;margin-bottom:var(--spacing-md);display:none;">
-              Thank you! Your message has been sent. We'll be in touch soon.
-            </div>
-            <button type="submit" class="btn btn-primary">Send message</button>
-          </form>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script src="site.js" defer></script>
+  const contactFormScript = `
   <script>
   (function () {
     document.getElementById('contact-form').addEventListener('submit', async function (e) {
       e.preventDefault();
-      const errorEl = document.getElementById('contact-error');
-      const successEl = document.getElementById('contact-success');
-      const btn = this.querySelector('button[type="submit"]');
+      var errorEl = document.getElementById('contact-error');
+      var successEl = document.getElementById('contact-success');
+      var btn = this.querySelector('button[type="submit"]');
 
-      const name = document.getElementById('contact-name').value.trim();
-      const email = document.getElementById('contact-email').value.trim();
-      const phone = document.getElementById('contact-phone').value.trim();
-      const message = document.getElementById('contact-message').value.trim();
+      var name = document.getElementById('contact-name').value.trim();
+      var email = document.getElementById('contact-email').value.trim();
+      var phone = document.getElementById('contact-phone').value.trim();
+      var message = document.getElementById('contact-message').value.trim();
 
       if (!name || !email || !message) {
         errorEl.textContent = 'Please fill in all required fields.';
@@ -132,12 +90,12 @@ export function addContact(input: AddContactInputType): AddContactResult {
       btn.disabled = true;
 
       try {
-        const res = await fetch('/workers/contact-api/notify', {
+        var res = await fetch('/workers/contact-api/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, message }),
+          body: JSON.stringify({ name: name, email: email, phone: phone, message: message }),
         });
-        const data = await res.json();
+        var data = await res.json();
         if (data.ok) {
           successEl.style.display = 'block';
           this.reset();
@@ -153,9 +111,60 @@ export function addContact(input: AddContactInputType): AddContactResult {
       }
     });
   })();
-  </script>
-</body>
-</html>`;
+  </script>`;
+
+  const contactBodyContent = `    <div class="page-header">
+      <div class="container">
+        <h1>Contact ${effectiveName}</h1>
+        <p>We'd love to hear from you. Send us a message and we'll get back to you shortly.</p>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="container">
+        <div class="container-form">
+          <p class="required-note"><span class="required-star">*</span> Required fields</p>
+          <form id="contact-form" novalidate>
+            <div class="form-group">
+              <label for="contact-name">Full name <span class="required-star" aria-label="required">*</span></label>
+              <input type="text" id="contact-name" name="name" required autocomplete="name" placeholder="Your full name" aria-required="true">
+            </div>
+            <div class="form-group">
+              <label for="contact-email">Email address <span class="required-star" aria-label="required">*</span></label>
+              <input type="email" id="contact-email" name="email" required autocomplete="email" placeholder="you@example.com" aria-required="true">
+            </div>
+            <div class="form-group">
+              <label for="contact-phone">Phone number</label>
+              <input type="tel" id="contact-phone" name="phone" autocomplete="tel" placeholder="Optional">
+            </div>
+            <div class="form-group">
+              <label for="contact-message">Message <span class="required-star" aria-label="required">*</span></label>
+              <textarea id="contact-message" name="message" required rows="5" placeholder="How can we help you?" aria-required="true"></textarea>
+            </div>
+            <div id="contact-error" class="form-error" role="alert"></div>
+            <div id="contact-success" class="form-success" role="status">
+              Thank you! Your message has been sent. We'll be in touch soon.
+            </div>
+            <button type="submit" class="btn btn-primary">Send message</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <script type="application/ld+json">
+${contactLdJson}
+    </script>
+${contactFormScript}`;
+
+  const contactHtml = generateHtmlPage({
+    title: `Contact — ${effectiveName}`,
+    bodyContent: contactBodyContent,
+    lang: contactLang,
+    description: `Contact ${effectiveName}`,
+    businessName: effectiveName,
+    navLinks: contactNavLinks,
+    canonicalUrl: "contact.html",
+  });
   writeFileSync(join(siteDir, "contact.html"), contactHtml, "utf-8");
   files.push("contact.html");
 

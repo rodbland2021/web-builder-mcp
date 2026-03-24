@@ -98,9 +98,9 @@ export function buildSite(input: BuildSiteInputType): BuildSiteResult {
       <div class="container">
         <h1>${businessName}</h1>
         <p>${heroTagline}</p>
-        <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+        <div class="hero-cta">
           <a href="${isServiceLike ? "contact.html" : "about.html"}" class="btn btn-outline">Get in touch</a>
-          <a href="about.html" class="btn" style="background:#fff;color:var(--color-primary);">Learn more</a>
+          <a href="about.html" class="btn btn-hero-secondary">Learn more</a>
         </div>
       </div>
     </section>
@@ -136,11 +136,28 @@ ${ldJson}
     fontFamily,
     businessName,
     navLinks,
+    canonicalUrl: "index.html",
   });
   writeFileSync(join(outputDir, "index.html"), indexHtml, "utf-8");
   files.push("index.html");
 
   // --- about.html ---
+  const aboutLdJson = JSON.stringify(
+    {
+      "@context": "https://schema.org",
+      "@type": "AboutPage",
+      name: `About ${businessName}`,
+      description: `About ${businessName} — ${location}`,
+      mainEntity: {
+        "@type": schemaType,
+        name: businessName,
+        address: { "@type": "PostalAddress", addressLocality: location },
+      },
+    },
+    null,
+    2
+  );
+
   const aboutBody = `    <div class="page-header">
       <div class="container">
         <h1>About ${businessName}</h1>
@@ -150,7 +167,7 @@ ${ldJson}
 
     <section class="section">
       <div class="container">
-        <div style="max-width:720px;margin-inline:auto;" class="flow">
+        <div class="flow container-narrow">
           <h2>Who we are</h2>
           <p>${businessName} is a trusted ${businessType} business based in ${location}. We are committed to delivering outstanding results for every client.</p>
           <h2>Our mission</h2>
@@ -159,7 +176,11 @@ ${ldJson}
           <p>We proudly serve clients in ${location} and the surrounding area. Get in touch to find out how we can help you.</p>
         </div>
       </div>
-    </section>`;
+    </section>
+
+    <script type="application/ld+json">
+${aboutLdJson}
+    </script>`;
 
   const aboutHtml = generateHtmlPage({
     title: `About — ${businessName}`,
@@ -168,12 +189,29 @@ ${ldJson}
     description: `About ${businessName} — ${location}`,
     businessName,
     navLinks,
+    canonicalUrl: "about.html",
   });
   writeFileSync(join(outputDir, "about.html"), aboutHtml, "utf-8");
   files.push("about.html");
 
   // --- contact.html (for service/hybrid types) ---
   if (isServiceLike) {
+    const contactLdJson = JSON.stringify(
+      {
+        "@context": "https://schema.org",
+        "@type": "ContactPage",
+        name: `Contact ${businessName}`,
+        description: `Contact ${businessName} in ${location}`,
+        mainEntity: {
+          "@type": schemaType,
+          name: businessName,
+          address: { "@type": "PostalAddress", addressLocality: location },
+        },
+      },
+      null,
+      2
+    );
+
     const contactBody = `    <div class="page-header">
       <div class="container">
         <h1>Contact ${businessName}</h1>
@@ -183,7 +221,7 @@ ${ldJson}
 
     <section class="section">
       <div class="container">
-        <div style="max-width:600px;margin-inline:auto;">
+        <div class="container-form">
           <p class="required-note"><span class="required-star">*</span> Required fields</p>
           <form id="contact-form" novalidate>
             <div class="form-group">
@@ -206,7 +244,11 @@ ${ldJson}
           </form>
         </div>
       </div>
-    </section>`;
+    </section>
+
+    <script type="application/ld+json">
+${contactLdJson}
+    </script>`;
 
     const contactHtml = generateHtmlPage({
       title: `Contact — ${businessName}`,
@@ -215,6 +257,7 @@ ${ldJson}
       description: `Contact ${businessName} in ${location}`,
       businessName,
       navLinks,
+      canonicalUrl: "contact.html",
     });
     writeFileSync(join(outputDir, "contact.html"), contactHtml, "utf-8");
     files.push("contact.html");

@@ -24,6 +24,7 @@ export interface HtmlPageOpts {
   jsFile?: string;
   extraCss?: string[];
   extraJs?: string[];
+  canonicalUrl?: string;
 }
 
 export function generateStyles(opts: StylesOpts): string {
@@ -104,6 +105,11 @@ a:hover { text-decoration: underline; }
 
 /* Layout utilities */
 .container { width: 100%; max-width: var(--max-width); margin-inline: auto; padding-inline: var(--spacing-md); }
+.container-narrow { max-width: 720px; margin-inline: auto; }
+.container-form { max-width: 600px; margin-inline: auto; }
+.mt-xl { margin-top: var(--spacing-xl); }
+.form-error { color: #dc2626; margin-bottom: var(--spacing-md); display: none; }
+.form-success { color: #16a34a; margin-bottom: var(--spacing-md); display: none; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 .text-center { text-align: center; }
 .flow > * + * { margin-top: var(--spacing-md); }
@@ -216,6 +222,8 @@ a:hover { text-decoration: underline; }
 }
 .hero h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: var(--spacing-lg); }
 .hero p { font-size: 1.125rem; max-width: 600px; margin-inline: auto; margin-bottom: var(--spacing-xl); opacity: 0.9; }
+.hero-cta { display: flex; gap: var(--spacing-md); justify-content: center; flex-wrap: wrap; }
+.btn-hero-secondary { background: #fff; color: var(--color-primary); }
 
 /* Sections */
 .section { padding: var(--spacing-3xl) 0; }
@@ -403,6 +411,10 @@ export function generateHtmlPage(opts: HtmlPageOpts): string {
   const extraCssTags = extraCss.map((f) => `  <link rel="stylesheet" href="${f}">`).join("\n");
   const extraJsTags = extraJs.map((f) => `  <script src="${f}" defer></script>`).join("\n");
 
+  const canonicalTag = opts.canonicalUrl
+    ? `  <link rel="canonical" href="${opts.canonicalUrl}">\n`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -413,7 +425,7 @@ export function generateHtmlPage(opts: HtmlPageOpts): string {
   <meta property="og:description" content="${description}">
   <meta property="og:type" content="website">
   <title>${opts.title}</title>
-  <link rel="stylesheet" href="${cssFile}">
+${canonicalTag}  <link rel="stylesheet" href="${cssFile}">
 ${extraCssTags ? extraCssTags + "\n" : ""}${opts.extraHead ?? ""}
 </head>
 <body>
