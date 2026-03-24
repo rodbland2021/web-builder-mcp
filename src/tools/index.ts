@@ -12,6 +12,7 @@ import { registerSeoAudit } from "./seo-audit.js";
 import { registerAdaCheck } from "./ada-check.js";
 import { registerScreenshot } from "./screenshot.js";
 import { registerLighthouse } from "./lighthouse.js";
+import { registerRunTests } from "./run-tests.js";
 
 type ToolRegistrar = (server: McpServer) => void;
 
@@ -29,6 +30,7 @@ const toolRegistrars: ToolRegistrar[] = [
   registerAdaCheck,
   registerScreenshot,
   registerLighthouse,
+  registerRunTests,
 ];
 
 export function registerAllTools(server: McpServer): void {
