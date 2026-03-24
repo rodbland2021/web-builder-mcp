@@ -3,10 +3,17 @@ import { registerDiscover } from "./discover.js";
 import { registerResearch } from "./research.js";
 import { registerCreateDoc } from "./create-doc.js";
 import { registerReviewDoc } from "./review-doc.js";
+import { registerBuildSite } from "./build-site.js";
 
 type ToolRegistrar = (server: McpServer) => void;
 
-const toolRegistrars: ToolRegistrar[] = [registerDiscover, registerResearch, registerCreateDoc, registerReviewDoc];
+const toolRegistrars: ToolRegistrar[] = [
+  registerDiscover,
+  registerResearch,
+  registerCreateDoc,
+  registerReviewDoc,
+  registerBuildSite,
+];
 
 export function registerAllTools(server: McpServer): void {
   for (const register of toolRegistrars) {
