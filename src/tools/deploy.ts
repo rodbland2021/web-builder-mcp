@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
+import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { loadConfig } from "../config.js";
 import type { Config } from "../config.js";
@@ -103,15 +104,23 @@ export async function deploy(input: DeployInputType): Promise<DeployResult | { e
     return { error: `Failed to check CF Pages project: ${checkRes.status} ${body}` };
   }
 
-  // Upload deployment via direct upload API
+  // Upload deployment via direct upload API — recursively collect all files
   const formData = new FormData();
-  const files = readdirSync(siteDir);
-  for (const file of files) {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const content = readFileSync(join(siteDir, file));
-    formData.append("files", new Blob([content]), file);
+
+  function collectFiles(dir: string, prefix: string): void {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        collectFiles(fullPath, relativePath);
+      } else if (entry.isFile()) {
+        const content = readFileSync(fullPath);
+        formData.append("files", new Blob([content]), relativePath);
+      }
+    }
   }
+  collectFiles(siteDir, "");
 
   const uploadUrl = `${baseUrl}/${projectName}/deployments`;
   const uploadRes = await fetch(uploadUrl, {

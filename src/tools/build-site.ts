@@ -2,7 +2,7 @@ import { z } from "zod";
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { generateStyles, generateSiteJs, generateHtmlPage } from "./templates.js";
+import { generateStyles, generateSiteJs, generateHtmlPage, escapeHtml, safeJsonForScript } from "./templates.js";
 
 export const BuildSiteInput = {
   businessName: z.string().describe("Name of the business"),
@@ -31,9 +31,7 @@ export interface BuildSiteResult {
   outputDir: string;
 }
 
-function escapeJson(str: string): string {
-  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
+// escapeHtml imported from templates.ts
 
 export function buildSite(input: BuildSiteInputType): BuildSiteResult {
   const {
@@ -90,14 +88,19 @@ export function buildSite(input: BuildSiteInputType): BuildSiteResult {
     2
   );
 
+  // Escape user-supplied strings for safe HTML insertion
+  const safeName = escapeHtml(businessName);
+  const safeLocation = escapeHtml(location);
+  const safeTagline = escapeHtml(tagline ?? `Serving ${location} with excellence`);
+
   const heroTagline = tagline ?? `Serving ${location} with excellence`;
-  const featureItems = buildFeatureItems(businessType, businessName);
+  const featureItems = buildFeatureItems(businessType, safeName);
 
   // --- index.html ---
   const indexBody = `    <section class="hero">
       <div class="container">
-        <h1>${businessName}</h1>
-        <p>${heroTagline}</p>
+        <h1>${safeName}</h1>
+        <p>${safeTagline}</p>
         <div class="hero-cta">
           <a href="${isServiceLike ? "contact.html" : "about.html"}" class="btn btn-outline">Get in touch</a>
           <a href="about.html" class="btn btn-hero-secondary">Learn more</a>
@@ -107,7 +110,7 @@ export function buildSite(input: BuildSiteInputType): BuildSiteResult {
 
     <section class="section text-center">
       <div class="container">
-        <h2 class="section-title">Why choose ${escapeJson(businessName)}?</h2>
+        <h2 class="section-title">Why choose ${safeName}?</h2>
         <p class="section-lead">We're dedicated to providing exceptional quality and service to every client.</p>
         <div class="feature-grid">
 ${featureItems}
@@ -124,7 +127,7 @@ ${featureItems}
     </section>
 
     <script type="application/ld+json">
-${ldJson}
+${safeJsonForScript(ldJson)}
     </script>`;
 
   const indexHtml = generateHtmlPage({
@@ -134,7 +137,7 @@ ${ldJson}
     description: heroTagline,
     primaryColor,
     fontFamily,
-    businessName,
+    businessName: safeName,
     navLinks,
     canonicalUrl: "index.html",
   });
@@ -160,7 +163,7 @@ ${ldJson}
 
   const aboutBody = `    <div class="page-header">
       <div class="container">
-        <h1>About ${businessName}</h1>
+        <h1>About ${safeName}</h1>
         <p>Our story, values, and commitment to you.</p>
       </div>
     </div>
@@ -169,17 +172,17 @@ ${ldJson}
       <div class="container">
         <div class="flow container-narrow">
           <h2>Who we are</h2>
-          <p>${businessName} is a trusted ${businessType} business based in ${location}. We are committed to delivering outstanding results for every client.</p>
+          <p>${safeName} is a trusted ${escapeHtml(businessType)} business based in ${safeLocation}. We are committed to delivering outstanding results for every client.</p>
           <h2>Our mission</h2>
           <p>We believe in quality, transparency, and building lasting relationships with our customers. Everything we do is guided by these values.</p>
           <h2>Our location</h2>
-          <p>We proudly serve clients in ${location} and the surrounding area. Get in touch to find out how we can help you.</p>
+          <p>We proudly serve clients in ${safeLocation} and the surrounding area. Get in touch to find out how we can help you.</p>
         </div>
       </div>
     </section>
 
     <script type="application/ld+json">
-${aboutLdJson}
+${safeJsonForScript(aboutLdJson)}
     </script>`;
 
   const aboutHtml = generateHtmlPage({
@@ -187,7 +190,7 @@ ${aboutLdJson}
     bodyContent: aboutBody,
     lang,
     description: `About ${businessName} — ${location}`,
-    businessName,
+    businessName: safeName,
     navLinks,
     canonicalUrl: "about.html",
   });
@@ -214,7 +217,7 @@ ${aboutLdJson}
 
     const contactBody = `    <div class="page-header">
       <div class="container">
-        <h1>Contact ${businessName}</h1>
+        <h1>Contact ${safeName}</h1>
         <p>We'd love to hear from you. Fill in the form and we'll be in touch shortly.</p>
       </div>
     </div>
@@ -247,7 +250,7 @@ ${aboutLdJson}
     </section>
 
     <script type="application/ld+json">
-${contactLdJson}
+${safeJsonForScript(contactLdJson)}
     </script>`;
 
     const contactHtml = generateHtmlPage({
@@ -255,7 +258,7 @@ ${contactLdJson}
       bodyContent: contactBody,
       lang,
       description: `Contact ${businessName} in ${location}`,
-      businessName,
+      businessName: safeName,
       navLinks,
       canonicalUrl: "contact.html",
     });

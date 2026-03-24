@@ -171,7 +171,7 @@ export function registerReviewSite(server: McpServer): void {
     "review_site",
     {
       description:
-        "Runs a 11-item quality checklist against a generated site directory — CSS, accessibility, mobile, and content checks",
+        "Runs a quality checklist against a generated site directory — CSS custom properties, accessibility (skip link, alt text, lang), mobile nav, viewport, structured data, and content checks",
       inputSchema: ReviewSiteInput,
     },
     async (args) => {

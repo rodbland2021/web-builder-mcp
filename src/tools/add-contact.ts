@@ -2,7 +2,7 @@ import { z } from "zod";
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { generateHtmlPage } from "./templates.js";
+import { generateHtmlPage, escapeHtml, safeJsonForScript } from "./templates.js";
 
 export const AddContactInput = {
   siteDir: z.string().describe("Absolute path to existing site directory"),
@@ -52,7 +52,7 @@ export function addContact(input: AddContactInputType): AddContactResult {
     }
   }
 
-  const effectiveName = contactBusinessName ?? businessName;
+  const effectiveName = escapeHtml(contactBusinessName ?? businessName);
 
   const contactLdJson = JSON.stringify(
     {
@@ -152,7 +152,7 @@ export function addContact(input: AddContactInputType): AddContactResult {
     </section>
 
     <script type="application/ld+json">
-${contactLdJson}
+${safeJsonForScript(contactLdJson)}
     </script>
 ${contactFormScript}`;
 

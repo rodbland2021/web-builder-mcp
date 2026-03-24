@@ -3,6 +3,42 @@
  * Pure utility module — no MCP registration.
  */
 
+/**
+ * Escape a string for safe insertion into HTML content or attributes.
+ * Prevents XSS from user-supplied business names, product names, etc.
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Escape a string for safe insertion into a JavaScript string literal
+ * (single-quoted). Handles backslashes, quotes, newlines, and
+ * HTML script-closing sequences.
+ */
+export function escapeJsString(str: string): string {
+  return str
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/<\//g, "<\\/");
+}
+
+/**
+ * Make a JSON string safe for embedding inside an HTML <script> tag.
+ * Prevents `</script>` sequences in JSON values from closing the script block.
+ */
+export function safeJsonForScript(json: string): string {
+  return json.replace(/<\//g, "<\\/");
+}
+
 export interface StylesOpts {
   primaryColor?: string;
   secondaryColor?: string;
@@ -251,7 +287,7 @@ a:hover { text-decoration: underline; }
 /* CTA */
 .cta { background: var(--color-primary); color: #fff; text-align: center; padding: var(--spacing-3xl) var(--spacing-md); }
 .cta h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: var(--spacing-md); }
-.cta p { margin-bottom: var(--spacing-xl); opacity: 0.9; max-width: 560px; margin-inline: auto; margin-bottom: var(--spacing-xl); }
+.cta p { opacity: 0.9; max-width: 560px; margin-inline: auto; margin-bottom: var(--spacing-xl); }
 .cta .btn-outline { border-color: #fff; color: #fff; }
 .cta .btn-outline:hover { background: #fff; color: var(--color-primary); }
 
@@ -393,8 +429,9 @@ export function generateSiteJs(): string {
 
 export function generateHtmlPage(opts: HtmlPageOpts): string {
   const lang = opts.lang ?? "en-US";
-  const description = opts.description ?? "";
-  const businessName = opts.businessName ?? opts.title;
+  const description = escapeHtml(opts.description ?? "");
+  const safeTitle = escapeHtml(opts.title);
+  const businessName = opts.businessName ?? safeTitle;
   const cssFile = opts.cssFile ?? "styles.css";
   const jsFile = opts.jsFile ?? "site.js";
   const extraCss = opts.extraCss ?? [];
@@ -407,7 +444,7 @@ export function generateHtmlPage(opts: HtmlPageOpts): string {
   ];
   const navLinks = opts.navLinks ?? defaultNavLinks;
 
-  const navItems = navLinks.map((l) => `        <li><a href="${l.href}">${l.label}</a></li>`).join("\n");
+  const navItems = navLinks.map((l) => `        <li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`).join("\n");
   const extraCssTags = extraCss.map((f) => `  <link rel="stylesheet" href="${f}">`).join("\n");
   const extraJsTags = extraJs.map((f) => `  <script src="${f}" defer></script>`).join("\n");
 
@@ -421,10 +458,10 @@ export function generateHtmlPage(opts: HtmlPageOpts): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="${description}">
-  <meta property="og:title" content="${opts.title}">
+  <meta property="og:title" content="${safeTitle}">
   <meta property="og:description" content="${description}">
   <meta property="og:type" content="website">
-  <title>${opts.title}</title>
+  <title>${safeTitle}</title>
 ${canonicalTag}  <link rel="stylesheet" href="${cssFile}">
 ${extraCssTags ? extraCssTags + "\n" : ""}${opts.extraHead ?? ""}
 </head>

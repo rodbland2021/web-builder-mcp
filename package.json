@@ -7,8 +7,13 @@
   "bin": {
     "web-builder-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest"

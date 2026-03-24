@@ -2,7 +2,7 @@ import { z } from "zod";
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { generateHtmlPage } from "./templates.js";
+import { generateHtmlPage, escapeHtml, safeJsonForScript } from "./templates.js";
 
 export const AddShopInput = {
   siteDir: z.string().describe("Absolute path to existing site directory"),
@@ -245,6 +245,18 @@ export function addShop(input: AddShopInputType): AddShopResult {
   z-index: 299;
   display: none;
 }
+.cart-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #dc2626;
+  font-size: 1.25rem;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+.cart-remove:hover { color: #b91c1c; }
+
 .cart-overlay.is-open { display: block; }
 
 @media (min-width: 768px) {
@@ -335,7 +347,7 @@ export function addShop(input: AddShopInputType): AddShopResult {
           <button class="qty-btn" onclick="changeCartQty('\${item.id}', 1)" aria-label="Increase">+</button>
         </div>
         <div class="cart-item-price">\${formatPrice(item.price * 100 * item.qty)}</div>
-        <button onclick="removeCartItem('\${item.id}')" style="background:none;border:none;cursor:pointer;color:#dc2626;" aria-label="Remove">&times;</button>
+        <button class="cart-remove" onclick="removeCartItem('\${item.id}')" aria-label="Remove">&times;</button>
       </div>
     \`).join('');
   }
@@ -419,12 +431,12 @@ export function addShop(input: AddShopInputType): AddShopResult {
     .map(
       (p) => `
       <div class="product-card">
-        <div class="product-img">${p.image ? `<img src="${p.image}" alt="${p.name}">` : "🛍️"}</div>
+        <div class="product-img">${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">` : "🛍️"}</div>
         <div class="product-info">
-          <div class="product-name">${p.name}</div>
-          ${p.description ? `<div class="product-desc">${p.description}</div>` : ""}
-          <div class="product-price">${p.price.toFixed(2)} ${currency}</div>
-          <button class="btn-add-cart" onclick="addToCart('${p.id}')">Add to cart</button>
+          <div class="product-name">${escapeHtml(p.name)}</div>
+          ${p.description ? `<div class="product-desc">${escapeHtml(p.description)}</div>` : ""}
+          <div class="product-price">${p.price.toFixed(2)} ${escapeHtml(currency)}</div>
+          <button class="btn-add-cart" onclick="addToCart('${escapeHtml(p.id)}')">Add to cart</button>
         </div>
       </div>`
     )
@@ -522,7 +534,7 @@ ${productCards}
     <div class="cart-overlay" aria-hidden="true"></div>
 
     <script type="application/ld+json">
-${shopLdJson}
+${safeJsonForScript(shopLdJson)}
     </script>`;
 
   const shopHtml = generateHtmlPage({

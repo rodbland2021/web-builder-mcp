@@ -4,7 +4,7 @@ MCP server that turns client briefs into production-quality websites with e-comm
 
 ## Features
 
-- 17 MCP tools: discover → research → plan → review → build → enhance → test → deploy
+- 16 MCP tools: discover → research → plan → review → build → enhance → test → deploy
 - Auto-generated unit tests (Vitest), E2E tests (Playwright), and visual verification tests
 - CSS custom properties, semantic HTML, WCAG AA accessibility, mobile-first responsive
 - E-commerce via Stripe + Cloudflare Workers ($0/mo hosting)
