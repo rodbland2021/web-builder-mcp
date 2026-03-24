@@ -9,12 +9,12 @@ interface NamedImageProvider extends ImageProvider {
 export function createImageProvider(config: Config): NamedImageProvider {
   if (config.google.apiKey) {
     return {
-      name: "gemini-2.5-flash",
+      name: "imagen-4.0-fast",
       async generate(prompt: string, outputPath: string): Promise<string> {
         const { GoogleGenAI } = await import("@google/genai");
         const ai = new GoogleGenAI({ apiKey: config.google.apiKey });
         const response = await ai.models.generateImages({
-          model: "imagen-3.0-generate-002",
+          model: "imagen-4.0-fast-generate-001",
           prompt,
           config: { numberOfImages: 1 },
         });

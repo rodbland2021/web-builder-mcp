@@ -26,10 +26,10 @@ describe("Palette type", () => {
 });
 
 describe("createImageProvider", () => {
-  it("returns gemini-2.5-flash provider when google apiKey is set", () => {
+  it("returns imagen-4.0-fast provider when google apiKey is set", () => {
     const config = ConfigSchema.parse({ google: { apiKey: "test-key" } });
     const provider = createImageProvider(config);
-    expect(provider.name).toBe("gemini-2.5-flash");
+    expect(provider.name).toBe("imagen-4.0-fast");
   });
 
   it("returns unsplash provider when only unsplash accessKey is set", () => {
