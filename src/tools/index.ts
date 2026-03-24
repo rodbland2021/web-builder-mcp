@@ -6,6 +6,7 @@ import { registerReviewDoc } from "./review-doc.js";
 import { registerBuildSite } from "./build-site.js";
 import { registerAddShop } from "./add-shop.js";
 import { registerAddBooking } from "./add-booking.js";
+import { registerAddContact } from "./add-contact.js";
 
 type ToolRegistrar = (server: McpServer) => void;
 
@@ -17,6 +18,7 @@ const toolRegistrars: ToolRegistrar[] = [
   registerBuildSite,
   registerAddShop,
   registerAddBooking,
+  registerAddContact,
 ];
 
 export function registerAllTools(server: McpServer): void {
