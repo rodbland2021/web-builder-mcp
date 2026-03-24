@@ -56,13 +56,13 @@ describe("addShop", () => {
     expect(result.files).toContain("products.json");
   });
 
-  it("creates images/product-{slug}.jpg for each product", async () => {
+  it("creates images/product-{slug}.png for each product", async () => {
     await addShop(
       { siteDir, products: [{ name: "Coffee Beans", price: 22 }, { name: "Green Tea", price: 15 }] },
       { imageProvider: mockProvider }
     );
-    expect(existsSync(join(siteDir, "images", "product-coffee-beans.jpg"))).toBe(true);
-    expect(existsSync(join(siteDir, "images", "product-green-tea.jpg"))).toBe(true);
+    expect(existsSync(join(siteDir, "images", "product-coffee-beans.png"))).toBe(true);
+    expect(existsSync(join(siteDir, "images", "product-green-tea.png"))).toBe(true);
   });
 
   it("product cards reference generated images not emojis", async () => {
@@ -71,7 +71,7 @@ describe("addShop", () => {
       { imageProvider: mockProvider }
     );
     const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
-    expect(html).toContain('src="images/product-coffee-beans.jpg"');
+    expect(html).toContain('src="images/product-coffee-beans.png"');
     expect(html).not.toContain("🛍️");
   });
 
@@ -106,6 +106,6 @@ describe("addShop", () => {
       { imageProvider: mockProvider }
     );
     const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
-    expect(html).toContain('"image": "images/product-coffee-beans.jpg"');
+    expect(html).toContain('"image": "images/product-coffee-beans.png"');
   });
 });

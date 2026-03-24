@@ -48,15 +48,15 @@ describe("addBooking", () => {
     expect(result.files).toContain("book.html");
   });
 
-  it("creates images/booking-hero.jpg via mock provider", async () => {
+  it("creates images/booking-hero.png via mock provider", async () => {
     await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
-    expect(existsSync(join(siteDir, "images", "booking-hero.jpg"))).toBe(true);
+    expect(existsSync(join(siteDir, "images", "booking-hero.png"))).toBe(true);
   });
 
   it("book.html includes booking hero image reference", async () => {
     await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
     const html = readFileSync(join(siteDir, "book.html"), "utf-8");
-    expect(html).toContain("images/booking-hero.jpg");
+    expect(html).toContain("images/booking-hero.png");
   });
 
   it("returns imagesGenerated: 1", async () => {

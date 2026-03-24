@@ -66,10 +66,10 @@ export async function addShop(
   const productsWithIds = await Promise.all(
     products.map(async (p, i) => {
       const slug = slugify(p.name);
-      const imgPath = join(siteDir, "images", `product-${slug}.jpg`);
+      const imgPath = join(siteDir, "images", `product-${slug}.png`);
       const prompt = `Professional product photo of ${p.name}${p.description ? ` — ${p.description}` : ""}. Clean white background, studio lighting, commercial product photography`;
       await imageProvider.generate(prompt, imgPath);
-      files.push(`images/product-${slug}.jpg`);
+      files.push(`images/product-${slug}.png`);
       return {
         id: `prod-${slug}-${i + 1}`,
         slug,
@@ -407,7 +407,7 @@ export async function addShop(
     if (grid && products.length > 0) {
       grid.innerHTML = products.map(p => \`
         <div class="product-card">
-          <div class="product-img"><img src="images/product-\${p.slug || p.id}.jpg" alt="\${p.name}"></div>
+          <div class="product-img"><img src="images/product-\${p.slug || p.id}.png" alt="\${p.name}" loading="lazy"></div>
           <div class="product-info">
             <div class="product-name">\${p.name}</div>
             \${p.description ? \`<div class="product-desc">\${p.description}</div>\` : ''}
@@ -450,7 +450,7 @@ export async function addShop(
     .map(
       (p) => `
       <div class="product-card">
-        <div class="product-img"><img src="images/product-${escapeHtml(p.slug)}.jpg" alt="${escapeHtml(p.name)}"></div>
+        <div class="product-img"><img src="images/product-${escapeHtml(p.slug)}.png" alt="${escapeHtml(p.name)}" loading="lazy"></div>
         <div class="product-info">
           <div class="product-name">${escapeHtml(p.name)}</div>
           ${p.description ? `<div class="product-desc">${escapeHtml(p.description)}</div>` : ""}
@@ -474,7 +474,7 @@ export async function addShop(
           "@type": "Product",
           name: p.name,
           description: p.description ?? "",
-          image: `images/product-${p.slug}.jpg`,
+          image: `images/product-${p.slug}.png`,
           offers: {
             "@type": "Offer",
             price: p.price,

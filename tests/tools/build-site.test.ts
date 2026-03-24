@@ -49,10 +49,10 @@ describe("buildSite", () => {
     expect(existsSync(join(outputDir, "images"))).toBe(true);
   });
 
-  it("creates images/hero.jpg (SVG from mock)", async () => {
+  it("creates images/hero.png (SVG from mock)", async () => {
     await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
-    expect(existsSync(join(outputDir, "images/hero.jpg"))).toBe(true);
-    const content = readFileSync(join(outputDir, "images/hero.jpg"), "utf-8");
+    expect(existsSync(join(outputDir, "images/hero.png"))).toBe(true);
+    const content = readFileSync(join(outputDir, "images/hero.png"), "utf-8");
     expect(content).toContain("<svg");
   });
 
@@ -100,8 +100,8 @@ describe("buildSite", () => {
     expect(html).toContain("Latte Art");
     expect(html).toContain("feature-card");
     // Service icons should be created
-    expect(existsSync(join(outputDir, "images/service-espresso.jpg"))).toBe(true);
-    expect(existsSync(join(outputDir, "images/service-latte-art.jpg"))).toBe(true);
+    expect(existsSync(join(outputDir, "images/service-espresso.png"))).toBe(true);
+    expect(existsSync(join(outputDir, "images/service-latte-art.png"))).toBe(true);
   });
 
   it("creates about.html with story content", async () => {
@@ -121,7 +121,7 @@ describe("buildSite", () => {
     expect(html).toContain("Founded in 2010 by coffee lovers");
     expect(html).toContain("To serve the best coffee");
     // About image should be created
-    expect(existsSync(join(outputDir, "images/about.jpg"))).toBe(true);
+    expect(existsSync(join(outputDir, "images/about.png"))).toBe(true);
   });
 
   it("creates contact.html with contact info", async () => {
@@ -159,7 +159,7 @@ describe("buildSite", () => {
     const html = readFileSync(join(outputDir, "index.html"), "utf-8");
     expect(html).toContain("application/ld+json");
     // Check the LD+JSON includes image reference (escaped)
-    expect(html).toContain("images/hero.jpg");
+    expect(html).toContain("images/hero.png");
   });
 
   it("returns imagesGenerated and estimatedImageCost", async () => {
@@ -219,5 +219,200 @@ describe("buildSite", () => {
     const html = readFileSync(join(outputDir, "index.html"), "utf-8");
     expect(html).toContain("footer-grid");
     expect(html).toContain("footer-col");
+  });
+
+  // --- M2: Contact form has submit handler ---
+  it("contact.html includes inline form submit handler (M2)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "contact.html"), "utf-8");
+    expect(html).toContain("addEventListener('submit'");
+    expect(html).toContain("e.preventDefault()");
+    expect(html).toContain("contact-error");
+    expect(html).toContain("contact-success");
+  });
+
+  // --- M3: No premature Shop/Book nav links ---
+  it("does not add Shop to nav for hybrid type (M3)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, businessType: "hybrid" as const },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).not.toContain('href="shop.html"');
+  });
+
+  it("does not add Shop to nav for e-commerce type (M3)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, businessType: "e-commerce" as const },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).not.toContain('href="shop.html"');
+  });
+
+  // --- M4: Custom CTA section ---
+  it("uses custom CTA when ctaSection is provided (M4)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        ctaSection: {
+          heading: "Get Started Today",
+          text: "Join us for great coffee",
+          buttonText: "Sign Up",
+          buttonHref: "signup.html",
+        },
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain("Get Started Today");
+    expect(html).toContain("Join us for great coffee");
+    expect(html).toContain("Sign Up");
+    expect(html).toContain("signup.html");
+  });
+
+  it("falls back to hero CTA text when ctaSection is omitted (M4)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    // Should use hero CTA text, not hardcoded "Ready to get started?"
+    expect(html).not.toContain("Ready to get started?");
+    expect(html).toContain("Book a Table");
+  });
+
+  // --- M5: Industry-specific about fallback ---
+  it("uses industry-specific fallback for service type (M5)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).toContain("proudly serving");
+    expect(html).toContain("Melbourne, VIC");
+    expect(html).not.toContain("trusted service business based in");
+  });
+
+  it("uses industry-specific fallback for e-commerce type (M5)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, businessType: "e-commerce" as const },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).toContain("carefully curated products");
+  });
+
+  it("uses industry-specific fallback for portfolio type (M5)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, businessType: "portfolio" as const },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).toContain("distinctive work");
+  });
+
+  // --- S1: Lazy loading on below-fold images ---
+  it("adds loading=lazy to service card images (S1)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        services: [{ name: "Espresso", description: "Perfect shot" }],
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('loading="lazy"');
+  });
+
+  // --- S4: Active page indicator ---
+  it("marks current page as active in nav (S4)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const indexHtml = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(indexHtml).toContain('class="active" aria-current="page"');
+    // index.html should mark Home as active
+    expect(indexHtml).toMatch(/href="index.html"[^>]*class="active"/);
+    // about.html should mark About as active
+    const aboutHtml = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(aboutHtml).toMatch(/href="about.html"[^>]*class="active"/);
+  });
+
+  // --- S5: Absolute URLs with siteUrl ---
+  it("uses absolute URLs in sitemap when siteUrl is provided (S5)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, siteUrl: "https://sunrise.cafe" },
+      { imageProvider: provider }
+    );
+    const sitemap = readFileSync(join(outputDir, "sitemap.xml"), "utf-8");
+    expect(sitemap).toContain("https://sunrise.cafe/index.html");
+    expect(sitemap).toContain("https://sunrise.cafe/about.html");
+  });
+
+  it("uses absolute canonical URL when siteUrl is provided (S5)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, siteUrl: "https://sunrise.cafe" },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('href="https://sunrise.cafe/index.html"');
+  });
+
+  // --- S6: og:image meta tag ---
+  it("includes og:image meta tag (S6)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('og:image');
+    expect(html).toContain("images/hero.png");
+  });
+
+  // --- S8: Favicon ---
+  it("creates favicon.svg with primary colour and first letter (S8)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    expect(existsSync(join(outputDir, "favicon.svg"))).toBe(true);
+    const favicon = readFileSync(join(outputDir, "favicon.svg"), "utf-8");
+    expect(favicon).toContain("#2563eb");
+    expect(favicon).toContain(">S</text>");
+  });
+
+  it("links favicon in HTML head (S8)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('rel="icon" href="favicon.svg"');
+  });
+
+  // --- S9: Footer column titles use headings ---
+  it("uses h2 instead of p for footer column titles (S9)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        contactInfo: { phone: "123", email: "a@b.com" },
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('<h2 class="footer-col-title">');
+    expect(html).not.toContain('<p class="footer-col-title">');
+  });
+
+  // --- P1: LD+JSON url field uses siteUrl ---
+  it("LD+JSON includes siteUrl when provided (P1)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, siteUrl: "https://sunrise.cafe" },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('"url": "https://sunrise.cafe"');
+  });
+
+  it("LD+JSON omits url field when siteUrl not provided (P1)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).not.toContain('"url": ""');
+  });
+
+  // --- P4: LD+JSON placed before </body> ---
+  it("places LD+JSON before </body>, not inside <main> (P4)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    const mainEnd = html.indexOf("</main>");
+    const ldJsonPos = html.lastIndexOf("application/ld+json");
+    expect(ldJsonPos).toBeGreaterThan(mainEnd);
   });
 });

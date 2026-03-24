@@ -71,9 +71,25 @@ export const BuildSiteInput = {
       hours: z.string().optional(),
     })
     .optional(),
+  ctaSection: z
+    .object({
+      heading: z.string(),
+      text: z.string(),
+      buttonText: z.string(),
+      buttonHref: z.string(),
+    })
+    .optional()
+    .describe("Custom CTA section. If omitted, uses hero CTA text as fallback."),
+  siteUrl: z
+    .string()
+    .optional()
+    .describe("Full site URL (e.g. https://example.com) for absolute URLs in sitemap and canonical tags"),
   palette: PaletteSchema,
   fontFamily: z.string().optional(),
-  lang: z.string().optional(),
+  lang: z
+    .string()
+    .optional()
+    .describe("BCP 47 language tag (e.g. en-AU, en-US). Set to match the business location."),
 };
 
 type BuildSiteInputType = z.objectOutputType<typeof BuildSiteInput, z.ZodTypeAny>;
@@ -93,6 +109,24 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/** Industry-specific about page fallback when no story is provided (M5) */
+function aboutFallback(businessName: string, businessType: string, location: string): string {
+  const safeName = escapeHtml(businessName);
+  const safeLocation = escapeHtml(location);
+  switch (businessType) {
+    case "service":
+      return `${safeName} has been proudly serving ${safeLocation} with dedication and expertise.`;
+    case "e-commerce":
+      return `${safeName} offers carefully curated products, delivered with care from ${safeLocation}.`;
+    case "hybrid":
+      return `${safeName} combines quality products and services, proudly based in ${safeLocation}.`;
+    case "portfolio":
+      return `${safeName} creates distinctive work from their studio in ${safeLocation}.`;
+    default:
+      return `${safeName} has been proudly serving ${safeLocation} with dedication and expertise.`;
+  }
+}
+
 export async function buildSite(
   input: BuildSiteInputType,
   opts: { imageProvider: ImageProvider }
@@ -107,6 +141,8 @@ export async function buildSite(
     about,
     trustBadges,
     contactInfo,
+    ctaSection: customCta,
+    siteUrl,
     palette,
     fontFamily = "Inter, system-ui, sans-serif",
     lang = "en-US",
@@ -119,13 +155,13 @@ export async function buildSite(
 
   const files: string[] = [];
 
-  // --- Generate images ---
+  // --- Generate images (M1: use .png extension since Imagen returns PNG data) ---
 
   // Hero image
   const heroPrompt =
     hero.imagePrompt ||
     `Professional hero image for ${businessName} ${businessType} in ${location}`;
-  await provider.generate(heroPrompt, join(outputDir, "images/hero.jpg"));
+  await provider.generate(heroPrompt, join(outputDir, "images/hero.png"));
   imagesGenerated++;
 
   // Service icons
@@ -137,7 +173,7 @@ export async function buildSite(
         `Simple flat icon for ${service.name} service, minimal line art`;
       await provider.generate(
         iconPrompt,
-        join(outputDir, `images/service-${serviceSlug}.jpg`)
+        join(outputDir, `images/service-${serviceSlug}.png`)
       );
       imagesGenerated++;
     }
@@ -147,7 +183,7 @@ export async function buildSite(
   if (about) {
     await provider.generate(
       `About page image for ${businessName}`,
-      join(outputDir, "images/about.jpg")
+      join(outputDir, "images/about.png")
     );
     imagesGenerated++;
   }
@@ -162,15 +198,22 @@ export async function buildSite(
   writeFileSync(join(outputDir, "site.js"), js, "utf-8");
   files.push("site.js");
 
-  // --- Shared nav links for all pages ---
+  // --- S8: Generate SVG favicon ---
+  const firstLetter = businessName.charAt(0).toUpperCase();
+  const primaryColor = (palette as Palette).primary;
+  const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="16" fill="${primaryColor}"/>
+  <text x="50" y="72" text-anchor="middle" fill="white" font-family="system-ui, sans-serif" font-size="60" font-weight="700">${firstLetter}</text>
+</svg>`;
+  writeFileSync(join(outputDir, "favicon.svg"), faviconSvg, "utf-8");
+  files.push("favicon.svg");
+
+  // --- Shared nav links for all pages (M3: no premature Shop/Book links) ---
   const isServiceLike =
     businessType === "service" || businessType === "hybrid";
   const navLinks = [
     { href: "index.html", label: "Home" },
     { href: "about.html", label: "About" },
-    ...(businessType === "e-commerce" || businessType === "hybrid"
-      ? [{ href: "shop.html", label: "Shop" }]
-      : []),
     ...(isServiceLike
       ? [{ href: "contact.html", label: "Contact" }]
       : []),
@@ -179,27 +222,30 @@ export async function buildSite(
   const safeName = escapeHtml(businessName);
   const safeLocation = escapeHtml(location);
 
-  // LD+JSON structured data
+  // Helper for absolute URLs (S5)
+  const absUrl = (path: string): string =>
+    siteUrl ? `${siteUrl.replace(/\/$/, "")}/${path}` : path;
+
+  // LD+JSON structured data (P1: use siteUrl if available, omit url if not)
   const schemaType =
     businessType === "e-commerce" ? "Organization" : "LocalBusiness";
-  const ldJson = JSON.stringify(
-    {
-      "@context": "https://schema.org",
-      "@type": schemaType,
-      name: businessName,
-      description: hero.tagline,
-      image: "images/hero.jpg",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: location,
-      },
-      ...(contactInfo?.phone ? { telephone: contactInfo.phone } : {}),
-      ...(contactInfo?.email ? { email: contactInfo.email } : {}),
-      url: "",
+  const ldJsonObj: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": schemaType,
+    name: businessName,
+    description: hero.tagline,
+    image: absUrl("images/hero.png"),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: location,
     },
-    null,
-    2
-  );
+    ...(contactInfo?.phone ? { telephone: contactInfo.phone } : {}),
+    ...(contactInfo?.email ? { email: contactInfo.email } : {}),
+  };
+  if (siteUrl) {
+    ldJsonObj.url = siteUrl;
+  }
+  const ldJson = JSON.stringify(ldJsonObj, null, 2);
 
   // --- Trust badges ---
   const trustBadgesHtml =
@@ -212,14 +258,14 @@ export async function buildSite(
           .join("\n")}\n        </div>`
       : "";
 
-  // --- Services section ---
+  // --- Services section (S1: lazy loading on below-fold images) ---
   let servicesHtml = "";
   if (services && services.length > 0) {
     const serviceCards = services
       .map((s) => {
         const serviceSlug = slugify(s.name);
         return `          <div class="feature-card">
-            <img src="images/service-${serviceSlug}.jpg" alt="${escapeHtml(s.name)}">
+            <img src="images/service-${serviceSlug}.png" alt="${escapeHtml(s.name)}" loading="lazy">
             <h3>${escapeHtml(s.name)}</h3>
             <p>${escapeHtml(s.description)}</p>
           </div>`;
@@ -237,22 +283,27 @@ ${serviceCards}
     </section>`;
   }
 
-  // --- CTA section ---
-  const ctaSection = `
+  // --- CTA section (M4: customizable, falls back to hero CTA) ---
+  const ctaHeading = customCta?.heading ?? hero.cta.text;
+  const ctaText = customCta?.text ?? hero.tagline;
+  const ctaButtonText = customCta?.buttonText ?? hero.cta.text;
+  const ctaButtonHref = customCta?.buttonHref ?? hero.cta.href;
+
+  const ctaSectionHtml = `
     <section class="cta">
       <div class="container">
-        <h2>Ready to get started?</h2>
-        <p>Contact us today and let's discuss how we can help you.</p>
-        <a href="${isServiceLike ? "contact.html" : "about.html"}" class="btn btn-outline">Contact us</a>
+        <h2>${escapeHtml(ctaHeading)}</h2>
+        <p>${escapeHtml(ctaText)}</p>
+        <a href="${escapeHtml(ctaButtonHref)}" class="btn btn-outline">${escapeHtml(ctaButtonText)}</a>
       </div>
     </section>`;
 
-  // --- Footer content ---
+  // --- Footer content (S9: use h3 instead of p for column titles) ---
   const footerColumns: string[] = [];
 
   // Page links column
   footerColumns.push(`      <div class="footer-col">
-        <p class="footer-col-title">Pages</p>
+        <h2 class="footer-col-title">Pages</h3>
         <ul>
 ${navLinks.map((l) => `          <li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`).join("\n")}
         </ul>
@@ -273,7 +324,7 @@ ${navLinks.map((l) => `          <li><a href="${escapeHtml(l.href)}">${escapeHtm
       contactItems.push(`<p>${escapeHtml(contactInfo.address)}</p>`);
     if (contactItems.length > 0) {
       footerColumns.push(`      <div class="footer-col">
-        <p class="footer-col-title">Contact</p>
+        <h2 class="footer-col-title">Contact</h3>
 ${contactItems.map((item) => `        ${item}`).join("\n")}
       </div>`);
     }
@@ -282,7 +333,7 @@ ${contactItems.map((item) => `        ${item}`).join("\n")}
   // Hours column
   if (contactInfo?.hours) {
     footerColumns.push(`      <div class="footer-col">
-        <p class="footer-col-title">Hours</p>
+        <h2 class="footer-col-title">Hours</h3>
         <p>${escapeHtml(contactInfo.hours)}</p>
       </div>`);
   }
@@ -292,8 +343,11 @@ ${contactItems.map((item) => `        ${item}`).join("\n")}
       ? `      <div class="footer-grid">\n${footerColumns.join("\n")}\n      </div>`
       : undefined;
 
+  // S8: favicon link tag
+  const faviconHead = `  <link rel="icon" href="favicon.svg" type="image/svg+xml">\n`;
+
   // --- Hero section (uses class-based background via extraHead <style>) ---
-  const heroExtraHead = `  <style>.hero-bg { background-image: url('images/hero.jpg'); }</style>\n`;
+  const heroExtraHead = `  <style>.hero-bg { background-image: url('images/hero.png'); }</style>\n${faviconHead}`;
 
   const heroSection = `    <section class="hero hero-bg">
       <div class="hero-overlay"></div>
@@ -310,14 +364,10 @@ ${contactItems.map((item) => `        ${item}`).join("\n")}
       </div>
     </section>`;
 
-  // --- index.html ---
+  // --- index.html (P4: LD+JSON via template, not in bodyContent) ---
   const indexBody = `${heroSection}
 ${servicesHtml}
-${ctaSection}
-
-    <script type="application/ld+json">
-${safeJsonForScript(ldJson)}
-    </script>`;
+${ctaSectionHtml}`;
 
   const indexHtml = generateHtmlPage({
     title: businessName,
@@ -327,17 +377,21 @@ ${safeJsonForScript(ldJson)}
     fontFamily,
     businessName: safeName,
     navLinks,
-    canonicalUrl: "index.html",
+    currentPage: "index.html",
+    canonicalUrl: absUrl("index.html"),
     phone: contactInfo?.phone,
     ctaButton: hero.cta,
     footerContent,
     extraHead: heroExtraHead,
+    ogImage: absUrl("images/hero.png"),
+    ldJson: safeJsonForScript(ldJson),
   });
   writeFileSync(join(outputDir, "index.html"), indexHtml, "utf-8");
   files.push("index.html");
 
   // --- about.html ---
-  const aboutStory = about?.story ?? `${safeName} is a trusted ${escapeHtml(businessType)} business based in ${safeLocation}.`;
+  // M5: industry-specific fallback when no story provided
+  const aboutStory = about?.story ?? aboutFallback(businessName, businessType, location);
   const aboutMission = about?.mission
     ? `\n          <h2>Our Mission</h2>\n          <p>${escapeHtml(about.mission)}</p>`
     : "";
@@ -351,7 +405,7 @@ ${safeJsonForScript(ldJson)}
       "@type": "AboutPage",
       name: `About ${businessName}`,
       description: `About ${businessName} — ${location}`,
-      image: "images/about.jpg",
+      image: absUrl("images/about.png"),
       mainEntity: {
         "@type": schemaType,
         name: businessName,
@@ -378,11 +432,7 @@ ${safeJsonForScript(ldJson)}
           <p>We proudly serve clients in ${safeLocation} and the surrounding area.</p>
         </div>
       </div>
-    </section>
-
-    <script type="application/ld+json">
-${safeJsonForScript(aboutLdJson)}
-    </script>`;
+    </section>`;
 
   const aboutHtml = generateHtmlPage({
     title: `About — ${businessName}`,
@@ -391,9 +441,12 @@ ${safeJsonForScript(aboutLdJson)}
     description: `About ${businessName} — ${location}`,
     businessName: safeName,
     navLinks,
-    canonicalUrl: "about.html",
+    currentPage: "about.html",
+    canonicalUrl: absUrl("about.html"),
     phone: contactInfo?.phone,
     footerContent,
+    extraHead: faviconHead,
+    ldJson: safeJsonForScript(aboutLdJson),
   });
   writeFileSync(join(outputDir, "about.html"), aboutHtml, "utf-8");
   files.push("about.html");
@@ -443,6 +496,54 @@ ${safeJsonForScript(aboutLdJson)}
         ? `\n          <div class="flow">\n${contactDetailsHtml.map((d) => `            ${d}`).join("\n")}\n          </div>`
         : "";
 
+    // M2: Contact form with submit handler (same pattern as add-contact.ts)
+    const contactFormScript = `
+  <script>
+  (function () {
+    document.getElementById('contact-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var errorEl = document.getElementById('contact-error');
+      var successEl = document.getElementById('contact-success');
+      var btn = this.querySelector('button[type="submit"]');
+
+      var name = document.getElementById('contact-name').value.trim();
+      var email = document.getElementById('contact-email').value.trim();
+      var phone = document.getElementById('contact-phone').value.trim();
+      var message = document.getElementById('contact-message').value.trim();
+
+      if (!name || !email || !message) {
+        errorEl.textContent = 'Please fill in all required fields.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      errorEl.style.display = 'none';
+      btn.disabled = true;
+
+      try {
+        var res = await fetch('/workers/contact-api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, email: email, phone: phone, message: message }),
+        });
+        var data = await res.json();
+        if (data.ok) {
+          successEl.style.display = 'block';
+          this.reset();
+        } else {
+          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        successEl.textContent = 'Thank you! Your message has been received.';
+        successEl.style.display = 'block';
+        this.reset();
+      }
+    });
+  })();
+  </script>`;
+
     const contactBody = `    <div class="page-header">
       <div class="container">
         <h1>Contact ${safeName}</h1>
@@ -454,6 +555,10 @@ ${safeJsonForScript(aboutLdJson)}
       <div class="container">
         <div class="container-form">
           <p class="required-note"><span class="required-star">*</span> Required fields</p>
+          <div id="contact-error" class="form-error" role="alert"></div>
+          <div id="contact-success" class="form-success" role="status">
+            Thank you! Your message has been sent. We'll be in touch soon.
+          </div>
           <form id="contact-form" novalidate>
             <div class="form-group">
               <label for="contact-name">Full name <span class="required-star">*</span></label>
@@ -476,10 +581,7 @@ ${safeJsonForScript(aboutLdJson)}
         </div>
       </div>
     </section>
-
-    <script type="application/ld+json">
-${safeJsonForScript(contactLdJson)}
-    </script>`;
+${contactFormScript}`;
 
     const contactHtml = generateHtmlPage({
       title: `Contact — ${businessName}`,
@@ -488,27 +590,31 @@ ${safeJsonForScript(contactLdJson)}
       description: `Contact ${businessName} in ${location}`,
       businessName: safeName,
       navLinks,
-      canonicalUrl: "contact.html",
+      currentPage: "contact.html",
+      canonicalUrl: absUrl("contact.html"),
       phone: contactInfo?.phone,
       footerContent,
+      extraHead: faviconHead,
+      ldJson: safeJsonForScript(contactLdJson),
     });
     writeFileSync(join(outputDir, "contact.html"), contactHtml, "utf-8");
     files.push("contact.html");
   }
 
   // --- robots.txt ---
+  const sitemapUrl = siteUrl ? `${siteUrl.replace(/\/$/, "")}/sitemap.xml` : "/sitemap.xml";
   const robots = `User-agent: *
 Allow: /
 
-Sitemap: /sitemap.xml
+Sitemap: ${sitemapUrl}
 `;
   writeFileSync(join(outputDir, "robots.txt"), robots, "utf-8");
   files.push("robots.txt");
 
-  // --- sitemap.xml ---
+  // --- sitemap.xml (S5: use absolute URLs when siteUrl provided) ---
   const sitemapPages = files
     .filter((f) => f.endsWith(".html"))
-    .map((f) => `  <url><loc>${f}</loc></url>`)
+    .map((f) => `  <url><loc>${absUrl(f)}</loc></url>`)
     .join("\n");
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

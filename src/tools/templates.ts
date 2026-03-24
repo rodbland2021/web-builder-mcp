@@ -50,6 +50,7 @@ export interface HtmlPageOpts {
   fontFamily?: string;
   extraHead?: string;
   navLinks?: Array<{ href: string; label: string }>;
+  currentPage?: string;
   businessName?: string;
   cssFile?: string;
   jsFile?: string;
@@ -60,6 +61,8 @@ export interface HtmlPageOpts {
   ctaButton?: { text: string; href: string };
   footerContent?: string;
   unsplashAttribution?: string;
+  ogImage?: string;
+  ldJson?: string;
 }
 
 export function generateStyles(palette: Palette, fontFamily?: string): string {
@@ -173,7 +176,11 @@ a:hover { text-decoration: underline; }
   background: none;
   border: none;
   cursor: pointer;
-  padding: var(--spacing-sm);
+  padding: var(--spacing-md);
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-md);
 }
 .nav-toggle span {
@@ -209,6 +216,7 @@ a:hover { text-decoration: underline; }
   font-weight: 500;
 }
 .nav-links a:hover { background: var(--color-bg-alt); text-decoration: none; }
+.nav-links a.active { color: var(--color-primary); font-weight: 700; }
 .nav-overlay {
   display: none;
   position: fixed;
@@ -222,7 +230,6 @@ a:hover { text-decoration: underline; }
 .nav-phone {
   font-weight: 600;
   color: var(--color-text);
-  display: none;
 }
 .nav-phone:hover { text-decoration: none; color: var(--color-primary); }
 
@@ -316,7 +323,7 @@ a:hover { text-decoration: underline; }
 /* Sections */
 .section { padding: var(--spacing-3xl) 0; }
 .section-alt { background: var(--color-bg-alt); }
-.section-title { font-size: 1.75rem; font-weight: 700; margin-bottom: var(--spacing-md); }
+.section-title { font-size: 1.75rem; font-weight: 700; margin-bottom: var(--spacing-xl); }
 .section-lead { color: var(--color-text-muted); max-width: 640px; margin-inline: auto; margin-bottom: var(--spacing-2xl); }
 
 /* Feature grid */
@@ -334,8 +341,7 @@ a:hover { text-decoration: underline; }
   transition: transform var(--transition), box-shadow var(--transition);
 }
 .feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 .feature-icon { font-size: 2rem; margin-bottom: var(--spacing-md); }
 .feature-card h3 { font-size: 1.125rem; font-weight: 700; margin-bottom: var(--spacing-sm); }
@@ -353,7 +359,7 @@ a:hover { text-decoration: underline; }
 .site-footer {
   background: #1e293b;
   color: #94a3b8;
-  padding: var(--spacing-2xl) var(--spacing-md);
+  padding: var(--spacing-3xl) var(--spacing-md) var(--spacing-2xl);
   font-size: 0.875rem;
 }
 .site-footer a { color: #94a3b8; }
@@ -363,11 +369,13 @@ a:hover { text-decoration: underline; }
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 2rem;
 }
+h2.footer-col-title,
 .footer-col-title {
   color: #e2e8f0;
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: var(--spacing-md);
+  margin-top: 0;
 }
 .footer-col ul { list-style: none; }
 .footer-col ul li { margin-bottom: var(--spacing-xs); }
@@ -405,7 +413,7 @@ a:hover { text-decoration: underline; }
 .form-group textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 .required-note { font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: var(--spacing-lg); }
 .required-star { color: #dc2626; }
@@ -432,7 +440,6 @@ a:hover { text-decoration: underline; }
     background: transparent;
   }
   .nav-links a { padding: var(--spacing-xs) var(--spacing-md); }
-  .nav-phone { display: block; }
   .hero h1 { font-size: 2.75rem; }
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
   .section-title { font-size: 2rem; }
@@ -522,7 +529,11 @@ export function generateHtmlPage(opts: HtmlPageOpts): string {
   ];
   const navLinks = opts.navLinks ?? defaultNavLinks;
 
-  const navItems = navLinks.map((l) => `        <li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`).join("\n");
+  const navItems = navLinks.map((l) => {
+    const isActive = opts.currentPage && l.href === opts.currentPage;
+    const activeAttr = isActive ? ` class="active" aria-current="page"` : "";
+    return `        <li><a href="${escapeHtml(l.href)}"${activeAttr}>${escapeHtml(l.label)}</a></li>`;
+  }).join("\n");
   const extraCssTags = extraCss.map((f) => `  <link rel="stylesheet" href="${f}">`).join("\n");
   const extraJsTags = extraJs.map((f) => `  <script src="${f}" defer></script>`).join("\n");
 
@@ -573,7 +584,7 @@ ${opts.footerContent}
   <meta name="description" content="${description}">
   <meta property="og:title" content="${safeTitle}">
   <meta property="og:description" content="${description}">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="website">${opts.ogImage ? `\n  <meta property="og:image" content="${escapeHtml(opts.ogImage)}">` : ""}
   <title>${safeTitle}</title>
 ${canonicalTag}  <link rel="stylesheet" href="${cssFile}">
 ${extraCssTags ? extraCssTags + "\n" : ""}${opts.extraHead ?? ""}
@@ -606,6 +617,6 @@ ${opts.bodyContent}
 ${footerHtml}
 
   <script src="${jsFile}" defer></script>
-${extraJsTags ? extraJsTags + "\n" : ""}</body>
+${extraJsTags ? extraJsTags + "\n" : ""}${opts.ldJson ? `  <script type="application/ld+json">\n${opts.ldJson}\n  </script>\n` : ""}</body>
 </html>`;
 }

@@ -73,7 +73,8 @@ describe("templates", () => {
     it("includes hover transitions on cards and buttons", () => {
       const css = generateStyles(testPalette);
       expect(css).toContain(".feature-card:hover");
-      expect(css).toContain("translateY(-4px)");
+      // S7: feature cards no longer have translateY hover (false affordance)
+      expect(css).not.toContain("translateY(-4px)");
       expect(css).toContain(".btn:hover");
     });
 
@@ -169,6 +170,117 @@ describe("templates", () => {
         unsplashAttribution: "Photo by John on Unsplash",
       });
       expect(html).toContain("Photo by John on Unsplash");
+    });
+
+    // --- S4: Active page indicator ---
+    it("marks current page nav link as active with aria-current (S4)", () => {
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "",
+        navLinks: [
+          { href: "index.html", label: "Home" },
+          { href: "about.html", label: "About" },
+        ],
+        currentPage: "about.html",
+      });
+      expect(html).toContain('href="about.html" class="active" aria-current="page"');
+      expect(html).not.toMatch(/href="index.html"[^>]*class="active"/);
+    });
+
+    // --- S6: og:image meta tag ---
+    it("includes og:image meta tag when ogImage is provided (S6)", () => {
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "",
+        ogImage: "images/hero.png",
+      });
+      expect(html).toContain('property="og:image"');
+      expect(html).toContain("images/hero.png");
+    });
+
+    it("omits og:image when ogImage not provided (S6)", () => {
+      const html = generateHtmlPage({ title: "Test", bodyContent: "" });
+      expect(html).not.toContain("og:image");
+    });
+
+    // --- P4: LD+JSON via template ---
+    it("renders LD+JSON before </body> when ldJson is provided (P4)", () => {
+      const ldJson = '{"@context":"https://schema.org","@type":"WebSite"}';
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "<p>Content</p>",
+        ldJson,
+      });
+      const mainEnd = html.indexOf("</main>");
+      const ldJsonPos = html.indexOf("application/ld+json");
+      expect(ldJsonPos).toBeGreaterThan(mainEnd);
+      expect(html).toContain(ldJson);
+    });
+  });
+
+  describe("generateStyles CSS fixes", () => {
+    // --- M6: Form focus ring uses palette colour ---
+    it("uses color-mix for form focus ring instead of hardcoded blue (M6)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain("color-mix(in srgb, var(--color-primary) 15%, transparent)");
+      expect(css).not.toContain("rgba(37,99,235,0.15)");
+    });
+
+    // --- S3: Phone visible on mobile ---
+    it("does not hide nav-phone on mobile (S3)", () => {
+      const css = generateStyles(testPalette);
+      // .nav-phone base styles should NOT have display: none
+      const navPhoneSection = css.substring(css.indexOf(".nav-phone"), css.indexOf(".nav-phone:hover"));
+      expect(navPhoneSection).not.toContain("display: none");
+    });
+
+    // --- S7: No translateY hover on feature cards ---
+    it("feature-card:hover has no translateY (S7)", () => {
+      const css = generateStyles(testPalette);
+      const hoverStart = css.indexOf(".feature-card:hover");
+      const hoverEnd = css.indexOf("}", hoverStart);
+      const hoverBlock = css.substring(hoverStart, hoverEnd);
+      expect(hoverBlock).not.toContain("translateY");
+    });
+
+    // --- P5: Section title bottom margin ---
+    it("section-title uses spacing-xl margin-bottom (P5)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain(".section-title");
+      const sectionTitleStart = css.indexOf(".section-title");
+      const sectionTitleEnd = css.indexOf("}", sectionTitleStart);
+      const sectionTitleBlock = css.substring(sectionTitleStart, sectionTitleEnd);
+      expect(sectionTitleBlock).toContain("var(--spacing-xl)");
+    });
+
+    // --- P6: Hamburger touch target ---
+    it("nav-toggle has min 44px touch target (P6)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain("min-width: 44px");
+      expect(css).toContain("min-height: 44px");
+    });
+
+    // --- S10: Footer has breathing room ---
+    it("footer has increased top padding for breathing room (S10)", () => {
+      const css = generateStyles(testPalette);
+      const footerStart = css.indexOf(".site-footer {");
+      const footerEnd = css.indexOf("}", footerStart);
+      const footerBlock = css.substring(footerStart, footerEnd);
+      expect(footerBlock).toContain("var(--spacing-3xl)");
+    });
+
+    // --- S9: Footer col title CSS resets margin ---
+    it("footer-col-title CSS resets margin-top (S9)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain("h2.footer-col-title");
+      expect(css).toContain("margin-top: 0");
+    });
+
+    // --- S4: Active nav link CSS ---
+    it("includes .nav-links a.active styles (S4)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain(".nav-links a.active");
+      expect(css).toContain("font-weight: 700");
     });
   });
 });
