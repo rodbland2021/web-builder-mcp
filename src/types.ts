@@ -22,6 +22,31 @@ export const ConfigSchema = z.object({
       language: z.string().default("en-US"),
     })
     .default({}),
+  google: z.object({ apiKey: z.string().default("") }).default({}),
+  unsplash: z.object({ accessKey: z.string().default("") }).default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
+
+export interface Palette {
+  bg: string;
+  bgAlt: string;
+  text: string;
+  textMuted: string;
+  primary: string;
+  primaryDark: string;
+  accent: string;
+  surface: string;
+  border: string;
+}
+
+export interface ImageProvider {
+  name: string;
+  generate(prompt: string, outputPath: string): Promise<string>;
+}
+
+export interface ImageResult {
+  imagesGenerated: number;
+  imageProvider: string;
+  estimatedImageCost: string;
+}
