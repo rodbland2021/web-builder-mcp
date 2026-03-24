@@ -43,7 +43,7 @@ describe("templates", () => {
     it("includes .hero-overlay", () => {
       const css = generateStyles(testPalette);
       expect(css).toContain(".hero-overlay");
-      expect(css).toContain("rgba(0,0,0,0.55)");
+      expect(css).toContain("rgba(0,0,0,0.65)");
     });
 
     it("includes .trust-badges and .trust-badge", () => {

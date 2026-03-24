@@ -290,7 +290,7 @@ a:hover { text-decoration: underline; }
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0,0,0,0.65);
 }
 .hero-content {
   position: relative;

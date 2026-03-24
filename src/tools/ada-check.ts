@@ -192,8 +192,8 @@ export function adaCheck(siteDir: string): AdaCheckResult {
   // --- Serious: hero-overlay-contrast — check text over hero overlay ---
   const heroImagePath = join(siteDir, "images", "hero.png");
   if (existsSync(heroImagePath)) {
-    // Default overlay is rgba(0,0,0,0.55) from templates.ts
-    let overlayOpacity = 0.55;
+    // Default overlay is rgba(0,0,0,0.65) from templates.ts
+    let overlayOpacity = 0.65;
     const overlayMatch = allCss.match(/\.hero-overlay\s*\{[^}]*background:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*([0-9.]+)\s*\)/);
     if (overlayMatch) {
       overlayOpacity = parseFloat(overlayMatch[1]);
