@@ -3,6 +3,7 @@ import { adaCheck } from "../../src/tools/ada-check.js";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { PNG } from "pngjs";
 
 const COMPLIANT_HTML = `<!DOCTYPE html>
 <html lang="en-AU">
@@ -130,5 +131,98 @@ describe("adaCheck", () => {
     );
     expect(headingViolation).toBeDefined();
     expect(headingViolation?.severity).toBe("serious");
+  });
+
+  // --- palette-contrast checks ---
+  it("flags low contrast palette pairs as serious", () => {
+    writeFileSync(join(siteDir, "index.html"), COMPLIANT_HTML);
+    // Light grey text on white bg = low contrast
+    const lowContrastCss = `:root {
+  --color-bg: #ffffff;
+  --color-text: #cccccc;
+  --color-text-muted: #eeeeee;
+  --color-surface: #ffffff;
+  --color-bg-alt: #f8f8f8;
+  --color-primary: #2563eb;
+}
+:focus-visible { outline: 2px solid #2563eb; }
+`;
+    writeFileSync(join(siteDir, "styles.css"), lowContrastCss);
+
+    const result = adaCheck(siteDir);
+    const paletteViolation = result.violations.find((v) =>
+      v.description.toLowerCase().includes("palette contrast")
+    );
+    expect(paletteViolation).toBeDefined();
+    expect(paletteViolation?.severity).toBe("serious");
+  });
+
+  it("passes palette-contrast for high-contrast palette", () => {
+    writeFileSync(join(siteDir, "index.html"), COMPLIANT_HTML);
+    const highContrastCss = `:root {
+  --color-bg: #ffffff;
+  --color-text: #1e293b;
+  --color-text-muted: #475569;
+  --color-surface: #ffffff;
+  --color-bg-alt: #f8fafc;
+  --color-primary: #2563eb;
+}
+:focus-visible { outline: 2px solid #2563eb; }
+`;
+    writeFileSync(join(siteDir, "styles.css"), highContrastCss);
+
+    const result = adaCheck(siteDir);
+    const paletteViolation = result.violations.find((v) =>
+      v.description.toLowerCase().includes("palette contrast")
+    );
+    expect(paletteViolation).toBeUndefined();
+  });
+
+  // --- hero-overlay-contrast check ---
+  it("flags hero overlay with insufficient contrast", () => {
+    writeFileSync(join(siteDir, "index.html"), COMPLIANT_HTML);
+    const css = `:root { --color-primary: #2563eb; }
+:focus-visible { outline: 2px solid #2563eb; }
+.hero-overlay { background: rgba(0, 0, 0, 0.2); }
+`;
+    writeFileSync(join(siteDir, "styles.css"), css);
+    // Create a bright white PNG
+    mkdirSync(join(siteDir, "images"), { recursive: true });
+    const png = new PNG({ width: 4, height: 4 });
+    for (let i = 0; i < 4 * 4 * 4; i += 4) {
+      png.data[i] = 255;
+      png.data[i + 1] = 255;
+      png.data[i + 2] = 255;
+      png.data[i + 3] = 255;
+    }
+    writeFileSync(join(siteDir, "images", "hero.png"), PNG.sync.write(png));
+
+    const result = adaCheck(siteDir);
+    const heroViolation = result.violations.find((v) =>
+      v.description.toLowerCase().includes("hero overlay")
+    );
+    expect(heroViolation).toBeDefined();
+    expect(heroViolation?.severity).toBe("serious");
+  });
+
+  // --- focus-ring-contrast check ---
+  it("flags low-contrast focus ring as minor", () => {
+    writeFileSync(join(siteDir, "index.html"), COMPLIANT_HTML);
+    // Very light focus ring on white bg
+    const css = `:root {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-primary: #e0e0e0;
+}
+:focus-visible { outline: 3px solid #e0e0e0; }
+`;
+    writeFileSync(join(siteDir, "styles.css"), css);
+
+    const result = adaCheck(siteDir);
+    const focusViolation = result.violations.find((v) =>
+      v.description.toLowerCase().includes("focus ring")
+    );
+    expect(focusViolation).toBeDefined();
+    expect(focusViolation?.severity).toBe("minor");
   });
 });

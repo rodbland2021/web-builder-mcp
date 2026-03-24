@@ -63,4 +63,44 @@ describe("addBooking", () => {
     const result = await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
     expect(result.imagesGenerated).toBe(1);
   });
+
+  // --- MF-4: No Sunday skip in date generation ---
+  it("does not skip Sundays in book.js (MF-4)", async () => {
+    await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
+    const js = readFileSync(join(siteDir, "book.js"), "utf-8");
+    expect(js).not.toContain("getDay() !== 0");
+    expect(js).not.toContain("skip Sunday");
+  });
+
+  // --- SF-2: Noscript fallback on booking page ---
+  it("includes noscript fallback in book.html (SF-2)", async () => {
+    await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
+    const html = readFileSync(join(siteDir, "book.html"), "utf-8");
+    expect(html).toContain("<noscript>");
+    expect(html).toContain("JavaScript is required for online booking");
+  });
+
+  it("includes phone in noscript when nav has phone (SF-2)", async () => {
+    // Write an index.html with a nav phone
+    const indexHtml = `<!DOCTYPE html>
+<html lang="en-AU">
+<head><title>Test</title></head>
+<body>
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-logo">Test Biz</a>
+      <a href="tel:0412345678" class="nav-phone">0412 345 678</a>
+      <nav><ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+      </ul></nav>
+    </div>
+  </header>
+</body>
+</html>`;
+    writeFileSync(join(siteDir, "index.html"), indexHtml);
+    await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
+    const html = readFileSync(join(siteDir, "book.html"), "utf-8");
+    expect(html).toContain("0412 345 678");
+    expect(html).toContain("tel:");
+  });
 });

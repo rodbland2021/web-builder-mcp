@@ -16,6 +16,7 @@ import { registerLighthouse } from "./lighthouse.js";
 import { registerRunTests } from "./run-tests.js";
 import { registerDeploy } from "./deploy.js";
 import { registerGenerateImage } from "./generate-image.js";
+import { registerVerifyImages } from "./verify-images.js";
 
 export function registerAllTools(server: McpServer, config: Config): void {
   // Tools that don't need config
@@ -37,4 +38,5 @@ export function registerAllTools(server: McpServer, config: Config): void {
   registerAddShop(server, config);
   registerAddBooking(server, config);
   registerGenerateImage(server, config);
+  registerVerifyImages(server, config);
 }

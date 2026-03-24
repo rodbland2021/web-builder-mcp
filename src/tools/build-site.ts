@@ -303,7 +303,7 @@ ${serviceCards}
 
   // Page links column
   footerColumns.push(`      <div class="footer-col">
-        <h2 class="footer-col-title">Pages</h3>
+        <h2 class="footer-col-title">Pages</h2>
         <ul>
 ${navLinks.map((l) => `          <li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`).join("\n")}
         </ul>
@@ -324,7 +324,7 @@ ${navLinks.map((l) => `          <li><a href="${escapeHtml(l.href)}">${escapeHtm
       contactItems.push(`<p>${escapeHtml(contactInfo.address)}</p>`);
     if (contactItems.length > 0) {
       footerColumns.push(`      <div class="footer-col">
-        <h2 class="footer-col-title">Contact</h3>
+        <h2 class="footer-col-title">Contact</h2>
 ${contactItems.map((item) => `        ${item}`).join("\n")}
       </div>`);
     }
@@ -333,7 +333,7 @@ ${contactItems.map((item) => `        ${item}`).join("\n")}
   // Hours column
   if (contactInfo?.hours) {
     footerColumns.push(`      <div class="footer-col">
-        <h2 class="footer-col-title">Hours</h3>
+        <h2 class="footer-col-title">Hours</h2>
         <p>${escapeHtml(contactInfo.hours)}</p>
       </div>`);
   }
@@ -426,6 +426,7 @@ ${ctaSectionHtml}`;
     <section class="section">
       <div class="container">
         <div class="flow container-narrow">
+          <img src="images/about.png" alt="About ${safeName}" class="about-photo" loading="lazy">
           <h2>Our Story</h2>
           <p>${escapeHtml(aboutStory)}</p>${aboutMission}${aboutTeam}
           <h2>Our Location</h2>
@@ -536,9 +537,9 @@ ${ctaSectionHtml}`;
           btn.disabled = false;
         }
       } catch (err) {
-        successEl.textContent = 'Thank you! Your message has been received.';
-        successEl.style.display = 'block';
-        this.reset();
+        errorEl.textContent = "Sorry, we couldn't send your message. Please call us or try again later.";
+        errorEl.style.display = 'block';
+        btn.disabled = false;
       }
     });
   })();

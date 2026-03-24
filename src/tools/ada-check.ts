@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { existsSync } from "fs";
+import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readSiteFiles } from "./site-reader.js";
+import { parseHex, contrastRatio, meetsAA, heroOverlayContrast } from "./contrast.js";
 
 export const AdaCheckInput = {
   siteDir: z.string().describe("Absolute path to the site directory to check"),
@@ -105,20 +108,22 @@ export function adaCheck(siteDir: string): AdaCheckResult {
     }
   }
 
-  // --- Serious: Heading hierarchy (no skipped levels) ---
-  const headingMatches = allHtml.match(/<h([1-6])[\s>]/gi) ?? [];
-  const headingLevels = headingMatches.map((h) => parseInt(h.match(/h([1-6])/i)![1]));
-  let prevLevel = 0;
-  for (const level of headingLevels) {
-    if (prevLevel > 0 && level > prevLevel + 1) {
-      violations.push({
-        severity: "serious",
-        description: `Heading level skipped: h${prevLevel} → h${level} (missing h${prevLevel + 1})`,
-        suggestion: `Use sequential heading levels — do not skip from h${prevLevel} to h${level}`,
-      });
-      break; // Report first occurrence only to avoid noise
+  // --- Serious: Heading hierarchy (no skipped levels, per file) ---
+  for (const file of htmlFiles) {
+    const headingMatches = file.content.match(/<h([1-6])[\s>]/gi) ?? [];
+    const headingLevels = headingMatches.map((h) => parseInt(h.match(/h([1-6])/i)![1]));
+    let prevLevel = 0;
+    for (const level of headingLevels) {
+      if (prevLevel > 0 && level > prevLevel + 1) {
+        violations.push({
+          severity: "serious",
+          description: `Heading level skipped: h${prevLevel} → h${level} (missing h${prevLevel + 1})`,
+          suggestion: `Use sequential heading levels — do not skip from h${prevLevel} to h${level}`,
+        });
+        break; // Report first occurrence per file only
+      }
+      prevLevel = level;
     }
-    prevLevel = level;
   }
 
   // --- Serious: :focus-visible styles ---
@@ -147,6 +152,93 @@ export function adaCheck(siteDir: string): AdaCheckResult {
       description: `Missing ARIA landmark elements: ${missingLandmarks.join(", ")}`,
       suggestion: "Use semantic HTML5 landmark elements for screen reader navigation",
     });
+  }
+
+  // --- Serious: palette-contrast — check CSS variable pairs meet WCAG AA ---
+  const paletteVars: Record<string, string> = {};
+  const varMatches = allCss.matchAll(/--color-([a-z-]+)\s*:\s*(#[0-9a-fA-F]{3,6})/g);
+  for (const m of varMatches) {
+    paletteVars[m[1]] = m[2];
+  }
+
+  // Check critical text-on-background pairs
+  const palettePairs: Array<{ fg: string; bg: string; label: string; large?: boolean }> = [
+    { fg: "text", bg: "bg", label: "text on bg" },
+    { fg: "text-muted", bg: "bg", label: "textMuted on bg" },
+    { fg: "text", bg: "surface", label: "text on surface" },
+    { fg: "text-muted", bg: "surface", label: "textMuted on surface" },
+    { fg: "text", bg: "bg-alt", label: "text on bgAlt" },
+  ];
+
+  for (const pair of palettePairs) {
+    const fgHex = paletteVars[pair.fg];
+    const bgHex = paletteVars[pair.bg];
+    if (fgHex && bgHex) {
+      try {
+        if (!meetsAA(fgHex, bgHex, pair.large)) {
+          const ratio = contrastRatio(fgHex, bgHex);
+          violations.push({
+            severity: "serious",
+            description: `Palette contrast fail: ${pair.label} (${fgHex} on ${bgHex}) ratio ${ratio.toFixed(1)}:1, needs 4.5:1`,
+            suggestion: `Darken the foreground or lighten the background to achieve at least 4.5:1 contrast`,
+          });
+        }
+      } catch {
+        // Skip invalid hex values
+      }
+    }
+  }
+
+  // --- Serious: hero-overlay-contrast — check text over hero overlay ---
+  const heroImagePath = join(siteDir, "images", "hero.png");
+  if (existsSync(heroImagePath)) {
+    // Default overlay is rgba(0,0,0,0.55) from templates.ts
+    let overlayOpacity = 0.55;
+    const overlayMatch = allCss.match(/\.hero-overlay\s*\{[^}]*background:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*([0-9.]+)\s*\)/);
+    if (overlayMatch) {
+      overlayOpacity = parseFloat(overlayMatch[1]);
+    }
+
+    try {
+      const result = heroOverlayContrast(heroImagePath, overlayOpacity, "#ffffff");
+      if (!result.passes) {
+        violations.push({
+          severity: "serious",
+          description: `Hero overlay contrast insufficient: white text over ${(overlayOpacity * 100).toFixed(0)}% overlay has ratio ${result.ratio.toFixed(1)}:1, needs 4.5:1`,
+          suggestion: `Increase overlay opacity (currently ${(overlayOpacity * 100).toFixed(0)}%) or darken the hero image`,
+        });
+      }
+    } catch {
+      // Skip if PNG can't be read (e.g. SVG placeholder)
+    }
+  }
+
+  // --- Minor: focus-ring-contrast — check focus ring against bg and surface ---
+  const focusRingMatch = allCss.match(/:focus-visible\s*\{[^}]*outline:\s*[^;]*(#[0-9a-fA-F]{3,6})\b/);
+  if (focusRingMatch) {
+    const focusColor = focusRingMatch[1];
+    const bgColor = paletteVars["bg"];
+    const surfaceColor = paletteVars["surface"];
+    try {
+      if (bgColor && !meetsAA(focusColor, bgColor, true)) {
+        const ratio = contrastRatio(focusColor, bgColor);
+        violations.push({
+          severity: "minor",
+          description: `Focus ring contrast low against bg: ${focusColor} on ${bgColor} ratio ${ratio.toFixed(1)}:1, needs 3:1`,
+          suggestion: `Choose a focus ring colour with at least 3:1 contrast against the page background`,
+        });
+      }
+      if (surfaceColor && !meetsAA(focusColor, surfaceColor, true)) {
+        const ratio = contrastRatio(focusColor, surfaceColor);
+        violations.push({
+          severity: "minor",
+          description: `Focus ring contrast low against surface: ${focusColor} on ${surfaceColor} ratio ${ratio.toFixed(1)}:1, needs 3:1`,
+          suggestion: `Choose a focus ring colour with at least 3:1 contrast against the surface colour`,
+        });
+      }
+    } catch {
+      // Skip invalid hex
+    }
   }
 
   return {

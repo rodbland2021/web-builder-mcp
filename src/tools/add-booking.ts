@@ -321,9 +321,7 @@ export async function addBooking(
       for (let i = 1; i <= 7; i++) {
         const d = new Date();
         d.setDate(d.getDate() + i);
-        if (d.getDay() !== 0) { // skip Sundays
-          days.push({ label: d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }), value: d.toISOString().split('T')[0] });
-        }
+        days.push({ label: d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }), value: d.toISOString().split('T')[0] });
       }
       dateGrid.innerHTML = days.map(function (d) {
         return '<button type="button" class="date-btn" data-value="' + d.value + '">' + d.label + '</button>';
@@ -382,6 +380,7 @@ export async function addBooking(
   let bookNavLinks: Array<{ href: string; label: string }> | undefined;
   let bookBusinessName: string | undefined;
   let bookLang: string | undefined;
+  let bookPhone: string | undefined;
   const bookIndexPath = join(siteDir, "index.html");
   if (existsSync(bookIndexPath)) {
     try {
@@ -390,6 +389,8 @@ export async function addBooking(
       if (logoMatch) bookBusinessName = logoMatch[1];
       const langMatch = indexContent.match(/<html[^>]+lang="([^"]+)"/);
       if (langMatch) bookLang = langMatch[1];
+      const phoneMatch = indexContent.match(/class="nav-phone">([^<]+)</);
+      if (phoneMatch) bookPhone = phoneMatch[1];
       const linkMatches = [...indexContent.matchAll(/class="nav-links"[\s\S]*?<\/ul>/g)];
       if (linkMatches.length > 0) {
         const navHtml = linkMatches[0][0];
@@ -415,6 +416,9 @@ export async function addBooking(
   );
 
   const safeBookingName = escapeHtml(bookBusinessName ?? businessName);
+  const noscriptPhone = bookPhone
+    ? ` Call us at <a href="tel:${escapeHtml(bookPhone.replace(/\s/g, ""))}">${escapeHtml(bookPhone)}</a> to book.`
+    : " Please call us to book.";
   const bookBodyContent = `    <div class="booking-hero">
       <div class="booking-hero-bg" aria-hidden="true"></div>
       <div class="container">
@@ -435,6 +439,7 @@ export async function addBooking(
         </ol>
 
         <div id="booking-form-area">
+          <noscript><p>JavaScript is required for online booking.${noscriptPhone}</p></noscript>
           <div id="booking-error" class="form-error booking-error" role="alert"></div>
           <div class="booking-card">
 

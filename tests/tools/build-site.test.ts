@@ -376,8 +376,8 @@ describe("buildSite", () => {
     expect(html).toContain('rel="icon" href="favicon.svg"');
   });
 
-  // --- S9: Footer column titles use headings ---
-  it("uses h2 instead of p for footer column titles (S9)", async () => {
+  // --- S9/MF-2: Footer column titles use consistent h2 tags ---
+  it("uses consistent h2 open and close tags for footer column titles (S9/MF-2)", async () => {
     await buildSite(
       {
         ...minimalInput,
@@ -389,6 +389,8 @@ describe("buildSite", () => {
     const html = readFileSync(join(outputDir, "index.html"), "utf-8");
     expect(html).toContain('<h2 class="footer-col-title">');
     expect(html).not.toContain('<p class="footer-col-title">');
+    // No mismatched tags (h2 opening with h3 closing)
+    expect(html).not.toMatch(/<h2 class="footer-col-title">[^<]*<\/h3>/);
   });
 
   // --- P1: LD+JSON url field uses siteUrl ---
@@ -414,5 +416,49 @@ describe("buildSite", () => {
     const mainEnd = html.indexOf("</main>");
     const ldJsonPos = html.lastIndexOf("application/ld+json");
     expect(ldJsonPos).toBeGreaterThan(mainEnd);
+  });
+
+  // --- MF-2: Footer headings use consistent h2 tags (no h2/h3 mismatch) ---
+  it("footer column titles have matching open/close h2 tags (MF-2)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        contactInfo: { phone: "123", email: "a@b.com", hours: "9-5" },
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    const openH2 = (html.match(/<h2 class="footer-col-title">/g) ?? []).length;
+    expect(openH2).toBeGreaterThan(0);
+    // No mismatched h2 opening with h3 closing
+    expect(html).not.toMatch(/<h2 class="footer-col-title">[^<]*<\/h3>/);
+  });
+
+  // --- MF-3: Contact form catch shows error, not success ---
+  it("contact form catch block shows error message, not success (MF-3)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "contact.html"), "utf-8");
+    // Catch block should use errorEl, not successEl
+    expect(html).toContain("couldn't send your message");
+    expect(html).toContain("errorEl.textContent");
+    expect(html).toContain("errorEl.style.display");
+    // Should NOT show success in catch block
+    expect(html).not.toMatch(/catch\s*\([^)]*\)\s*\{[^}]*successEl/);
+  });
+
+  // --- SF-1: About page includes about.png ---
+  it("about.html includes about.png image (SF-1)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        about: { story: "Our story" },
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).toContain('src="images/about.png"');
+    expect(html).toContain("about-photo");
   });
 });

@@ -419,6 +419,13 @@ h2.footer-col-title,
 .required-star { color: #dc2626; }
 
 /* Page header */
+/* About photo */
+.about-photo {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
 .page-header {
   background: var(--color-bg-alt);
   border-bottom: 1px solid var(--color-border);
