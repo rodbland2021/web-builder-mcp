@@ -155,7 +155,7 @@ describe("templates", () => {
       const html = generateHtmlPage({
         title: "Test",
         bodyContent: "",
-        footerContent: '      <div class="footer-grid"><div class="footer-col"><h4>Links</h4></div></div>',
+        footerContent: '      <div class="footer-grid"><div class="footer-col"><p class="footer-col-title">Links</p></div></div>',
       });
       expect(html).toContain("footer-grid");
       expect(html).toContain("footer-col");

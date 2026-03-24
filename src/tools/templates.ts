@@ -363,7 +363,7 @@ a:hover { text-decoration: underline; }
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 2rem;
 }
-.footer-col h4 {
+.footer-col-title {
   color: #e2e8f0;
   font-size: 1rem;
   font-weight: 700;

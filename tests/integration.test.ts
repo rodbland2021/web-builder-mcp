@@ -16,14 +16,16 @@ import { adaCheck } from "../src/tools/ada-check.js";
 import { addShop } from "../src/tools/add-shop.js";
 import { addBooking } from "../src/tools/add-booking.js";
 import { addContact } from "../src/tools/add-contact.js";
+import { createMockProvider } from "../src/tools/image-generator.js";
 import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
 describe("Integration: generated sites pass all quality gates", () => {
   let siteDir: string;
+  const provider = createMockProvider();
 
-  beforeAll(() => {
+  beforeAll(async () => {
     siteDir = join(tmpdir(), `wbm-integration-${Date.now()}`);
     mkdirSync(siteDir, { recursive: true });
   });
@@ -32,14 +34,32 @@ describe("Integration: generated sites pass all quality gates", () => {
     rmSync(siteDir, { recursive: true, force: true });
   });
 
-  it("buildSite generates a site that passes reviewSite", () => {
-    buildSite({
-      businessName: "Test Co",
-      businessType: "service",
-      location: "Sydney, NSW",
-      outputDir: siteDir,
-      tagline: "Quality service in Sydney",
-    });
+  it("buildSite generates a site that passes reviewSite", async () => {
+    await buildSite(
+      {
+        businessName: "Test Co",
+        businessType: "service",
+        location: "Sydney, NSW",
+        outputDir: siteDir,
+        hero: {
+          headline: "Welcome to Test Co",
+          tagline: "Quality service in Sydney",
+          cta: { text: "Contact Us", href: "contact.html" },
+        },
+        palette: {
+          bg: "#ffffff",
+          bgAlt: "#f8fafc",
+          text: "#1e293b",
+          textMuted: "#64748b",
+          primary: "#2563eb",
+          primaryDark: "#1e40af",
+          accent: "#f59e0b",
+          surface: "#ffffff",
+          border: "#e2e8f0",
+        },
+      },
+      { imageProvider: provider }
+    );
 
     const review = reviewSite(siteDir);
     const failed = review.checks.filter((c) => !c.passed);
