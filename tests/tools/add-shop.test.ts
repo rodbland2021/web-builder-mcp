@@ -108,4 +108,34 @@ describe("addShop", () => {
     const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
     expect(html).toContain('"image": "images/product-coffee-beans.png"');
   });
+
+  // --- SEO Feature 2: Product Offer Schema ---
+  it("LD+JSON includes Offer block with price and priceCurrency (SEO-2)", async () => {
+    await addShop(
+      { siteDir, products: [{ name: "Coffee Beans", price: 22 }], currency: "AUD" },
+      { imageProvider: mockProvider }
+    );
+    const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
+    expect(html).toContain('"@type": "Offer"');
+    expect(html).toContain('"price": "22.00"');
+    expect(html).toContain('"priceCurrency": "AUD"');
+  });
+
+  it("LD+JSON Offer includes InStock availability (SEO-2)", async () => {
+    await addShop(
+      { siteDir, products: [{ name: "Tea", price: 15 }] },
+      { imageProvider: mockProvider }
+    );
+    const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
+    expect(html).toContain('"availability": "https://schema.org/InStock"');
+  });
+
+  it("LD+JSON uses provided currency code in Offer (SEO-2)", async () => {
+    await addShop(
+      { siteDir, products: [{ name: "Widget", price: 9.99 }], currency: "USD" },
+      { imageProvider: mockProvider }
+    );
+    const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
+    expect(html).toContain('"priceCurrency": "USD"');
+  });
 });

@@ -477,8 +477,9 @@ export async function addShop(
           image: `images/product-${p.slug}.png`,
           offers: {
             "@type": "Offer",
-            price: p.price,
+            price: p.price.toFixed(2),
             priceCurrency: currency,
+            availability: "https://schema.org/InStock",
           },
         },
       })),
