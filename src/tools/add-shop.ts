@@ -2,8 +2,9 @@ import { z } from "zod";
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Config } from "../types.js";
+import type { Config, ImageProvider } from "../types.js";
 import { generateHtmlPage, escapeHtml, safeJsonForScript } from "./templates.js";
+import { createImageProvider } from "./image-generator.js";
 
 export const AddShopInput = {
   siteDir: z.string().describe("Absolute path to existing site directory"),
@@ -13,7 +14,6 @@ export const AddShopInput = {
         name: z.string(),
         price: z.number().describe("Price in dollars"),
         description: z.string().optional(),
-        image: z.string().optional().describe("Image filename or URL"),
         tags: z.array(z.string()).optional(),
       })
     )
@@ -25,7 +25,6 @@ type Product = {
   name: string;
   price: number;
   description?: string;
-  image?: string;
   tags?: string[];
 };
 
@@ -38,6 +37,9 @@ type AddShopInputType = {
 export interface AddShopResult {
   files: string[];
   siteDir: string;
+  imagesGenerated: number;
+  imageProvider: string;
+  estimatedImageCost: string;
 }
 
 function slugify(name: string): string {
@@ -47,19 +49,36 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export function addShop(input: AddShopInputType): AddShopResult {
+export async function addShop(
+  input: AddShopInputType,
+  opts: { imageProvider: ImageProvider & { name: string } }
+): Promise<AddShopResult> {
   const { siteDir, products, currency = "USD" } = input;
+  const { imageProvider } = opts;
 
   const files: string[] = [];
 
-  // Ensure workers dir
+  // Ensure images dir and workers dir
+  mkdirSync(join(siteDir, "images"), { recursive: true });
   mkdirSync(join(siteDir, "workers", "shop-api"), { recursive: true });
 
+  // Generate product images
+  const productsWithIds = await Promise.all(
+    products.map(async (p, i) => {
+      const slug = slugify(p.name);
+      const imgPath = join(siteDir, "images", `product-${slug}.jpg`);
+      const prompt = `Professional product photo of ${p.name}${p.description ? ` — ${p.description}` : ""}. Clean white background, studio lighting, commercial product photography`;
+      await imageProvider.generate(prompt, imgPath);
+      files.push(`images/product-${slug}.jpg`);
+      return {
+        id: `prod-${slug}-${i + 1}`,
+        slug,
+        ...p,
+      };
+    })
+  );
+
   // --- products.json ---
-  const productsWithIds = products.map((p, i) => ({
-    id: `prod-${slugify(p.name)}-${i + 1}`,
-    ...p,
-  }));
   writeFileSync(join(siteDir, "products.json"), JSON.stringify(productsWithIds, null, 2), "utf-8");
   files.push("products.json");
 
@@ -102,7 +121,6 @@ export function addShop(input: AddShopInputType): AddShopResult {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
   overflow: hidden;
 }
 .product-img img { width: 100%; height: 100%; object-fit: cover; }
@@ -389,7 +407,7 @@ export function addShop(input: AddShopInputType): AddShopResult {
     if (grid && products.length > 0) {
       grid.innerHTML = products.map(p => \`
         <div class="product-card">
-          <div class="product-img">\${p.image ? \`<img src="\${p.image}" alt="\${p.name}">\` : '🛍️'}</div>
+          <div class="product-img"><img src="images/product-\${p.slug || p.id}.jpg" alt="\${p.name}"></div>
           <div class="product-info">
             <div class="product-name">\${p.name}</div>
             \${p.description ? \`<div class="product-desc">\${p.description}</div>\` : ''}
@@ -432,7 +450,7 @@ export function addShop(input: AddShopInputType): AddShopResult {
     .map(
       (p) => `
       <div class="product-card">
-        <div class="product-img">${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">` : "🛍️"}</div>
+        <div class="product-img"><img src="images/product-${escapeHtml(p.slug)}.jpg" alt="${escapeHtml(p.name)}"></div>
         <div class="product-info">
           <div class="product-name">${escapeHtml(p.name)}</div>
           ${p.description ? `<div class="product-desc">${escapeHtml(p.description)}</div>` : ""}
@@ -456,6 +474,7 @@ export function addShop(input: AddShopInputType): AddShopResult {
           "@type": "Product",
           name: p.name,
           description: p.description ?? "",
+          image: `images/product-${p.slug}.jpg`,
           offers: {
             "@type": "Offer",
             price: p.price,
@@ -529,7 +548,7 @@ ${productCards}
 
     <!-- Floating cart button -->
     <button id="cart-btn" class="cart-btn" aria-label="Open cart">
-      🛒 Cart <span id="cart-count" class="cart-count">0</span>
+      Cart <span id="cart-count" class="cart-count">0</span>
     </button>
 
     <div class="cart-overlay" aria-hidden="true"></div>
@@ -638,19 +657,28 @@ compatibility_date = "2024-01-01"
   writeFileSync(join(siteDir, "workers", "shop-api", "wrangler.toml"), wranglerToml, "utf-8");
   files.push("workers/shop-api/wrangler.toml");
 
-  return { files, siteDir };
+  return {
+    files,
+    siteDir,
+    imagesGenerated: products.length,
+    imageProvider: imageProvider.name,
+    estimatedImageCost: imageProvider.name === "gemini-2.5-flash"
+      ? `~$${(products.length * 0.04).toFixed(3)}`
+      : "$0.00",
+  };
 }
 
-export function registerAddShop(server: McpServer, _config: Config): void {
+export function registerAddShop(server: McpServer, config: Config): void {
+  const provider = createImageProvider(config);
   server.registerTool(
     "add_shop",
     {
       description:
-        "Add e-commerce functionality to an existing site: product grid, cart drawer, shop.js with localStorage, and a Cloudflare Worker for checkout",
+        "Add e-commerce functionality to an existing site: product grid with AI-generated product images, cart drawer, shop.js with localStorage, and a Cloudflare Worker for checkout",
       inputSchema: AddShopInput,
     },
     async (args) => {
-      const result = addShop(args as AddShopInputType);
+      const result = await addShop(args as AddShopInputType, { imageProvider: provider });
       return {
         content: [
           {

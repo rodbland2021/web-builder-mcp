@@ -80,15 +80,15 @@ describe("Integration: generated sites pass all quality gates", () => {
     expect(ada.passed).toBe(true);
   });
 
-  it("addShop then all checks still pass", () => {
-    addShop({
+  it("addShop then all checks still pass", async () => {
+    await addShop({
       siteDir,
       products: [
         { name: "Widget A", price: 19.99, description: "A quality widget" },
         { name: "Widget B", price: 29.99, description: "A premium widget" },
       ],
       currency: "USD",
-    });
+    }, { imageProvider: provider });
 
     const review = reviewSite(siteDir);
     const reviewFailed = review.checks.filter((c) => !c.passed);
@@ -105,12 +105,12 @@ describe("Integration: generated sites pass all quality gates", () => {
     expect(ada.passed).toBe(true);
   });
 
-  it("addBooking then all checks still pass", () => {
-    addBooking({
+  it("addBooking then all checks still pass", async () => {
+    await addBooking({
       siteDir,
       services: ["Consultation", "Follow-up"],
       businessName: "Test Co",
-    });
+    }, { imageProvider: provider });
 
     const review = reviewSite(siteDir);
     const reviewFailed = review.checks.filter((c) => !c.passed);
