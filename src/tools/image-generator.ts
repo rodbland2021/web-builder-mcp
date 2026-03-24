@@ -13,10 +13,9 @@ export function createImageProvider(config: Config): NamedImageProvider {
       async generate(prompt: string, outputPath: string): Promise<string> {
         const { GoogleGenAI } = await import("@google/genai");
         const ai = new GoogleGenAI({ apiKey: config.google.apiKey });
-        const safePrompt = prompt + ". Do not include any text, words, letters, or watermarks in the image.";
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-image-preview",
-          contents: safePrompt,
+          contents: prompt,
           config: {
             responseModalities: ["IMAGE"],
           },
