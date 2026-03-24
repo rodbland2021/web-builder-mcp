@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Config } from "../types.js";
 
 export const GenerateImageInput = {
   prompt: z.string().describe("Description of the image to generate"),
@@ -57,7 +58,7 @@ export function generateImagePrompt(input: GenerateImageInputType): GenerateImag
   };
 }
 
-export function registerGenerateImage(server: McpServer): void {
+export function registerGenerateImage(server: McpServer, _config: Config): void {
   server.registerTool(
     "generate_image",
     {

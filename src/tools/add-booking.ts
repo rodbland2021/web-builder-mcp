@@ -2,6 +2,7 @@ import { z } from "zod";
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Config } from "../types.js";
 import { generateHtmlPage, escapeHtml, escapeJsString, safeJsonForScript } from "./templates.js";
 
 export const AddBookingInput = {
@@ -585,7 +586,7 @@ compatibility_date = "2024-01-01"
   return { files, siteDir };
 }
 
-export function registerAddBooking(server: McpServer): void {
+export function registerAddBooking(server: McpServer, _config: Config): void {
   server.registerTool(
     "add_booking",
     {

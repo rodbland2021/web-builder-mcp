@@ -2,6 +2,7 @@ import { z } from "zod";
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Config } from "../types.js";
 import { generateStyles, generateSiteJs, generateHtmlPage, escapeHtml, safeJsonForScript } from "./templates.js";
 
 export const BuildSiteInput = {
@@ -322,7 +323,7 @@ function buildFeatureItems(businessType: string, businessName: string): string {
     .join("\n");
 }
 
-export function registerBuildSite(server: McpServer): void {
+export function registerBuildSite(server: McpServer, _config: Config): void {
   server.registerTool(
     "build_site",
     {

@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Config } from "../types.js";
 import { registerDiscover } from "./discover.js";
 import { registerResearch } from "./research.js";
 import { registerCreateDoc } from "./create-doc.js";
@@ -16,29 +17,24 @@ import { registerRunTests } from "./run-tests.js";
 import { registerDeploy } from "./deploy.js";
 import { registerGenerateImage } from "./generate-image.js";
 
-type ToolRegistrar = (server: McpServer) => void;
+export function registerAllTools(server: McpServer, config: Config): void {
+  // Tools that don't need config
+  registerDiscover(server);
+  registerResearch(server);
+  registerCreateDoc(server);
+  registerReviewDoc(server);
+  registerAddContact(server);
+  registerReviewSite(server);
+  registerSeoAudit(server);
+  registerAdaCheck(server);
+  registerScreenshot(server);
+  registerLighthouse(server);
+  registerRunTests(server);
+  registerDeploy(server);
 
-const toolRegistrars: ToolRegistrar[] = [
-  registerDiscover,
-  registerResearch,
-  registerCreateDoc,
-  registerReviewDoc,
-  registerBuildSite,
-  registerAddShop,
-  registerAddBooking,
-  registerAddContact,
-  registerReviewSite,
-  registerSeoAudit,
-  registerAdaCheck,
-  registerScreenshot,
-  registerLighthouse,
-  registerRunTests,
-  registerDeploy,
-  registerGenerateImage,
-];
-
-export function registerAllTools(server: McpServer): void {
-  for (const register of toolRegistrars) {
-    register(server);
-  }
+  // Tools that need config for image generation
+  registerBuildSite(server, config);
+  registerAddShop(server, config);
+  registerAddBooking(server, config);
+  registerGenerateImage(server, config);
 }
