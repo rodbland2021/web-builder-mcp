@@ -461,4 +461,131 @@ describe("buildSite", () => {
     expect(html).toContain('src="images/about.png"');
     expect(html).toContain("about-photo");
   });
+
+  // --- SEO Feature 1: Hero preload ---
+  it("index.html includes preload link for hero image (SEO-1)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('<link rel="preload" as="image" href="images/hero.png">');
+  });
+
+  it("about.html does not have hero preload link (SEO-1)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).not.toContain('rel="preload" as="image"');
+  });
+
+  // --- SEO Feature 3: BreadcrumbList ---
+  it("index.html includes BreadcrumbList LD+JSON (SEO-3)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('"BreadcrumbList"');
+    expect(html).toContain('"Home"');
+  });
+
+  it("about.html includes two-item BreadcrumbList (SEO-3)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).toContain('"BreadcrumbList"');
+    expect(html).toContain('"About"');
+    expect(html).toContain('"Home"');
+  });
+
+  it("contact.html includes two-item BreadcrumbList (SEO-3)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "contact.html"), "utf-8");
+    expect(html).toContain('"BreadcrumbList"');
+    expect(html).toContain('"Contact"');
+    expect(html).toContain('"Home"');
+  });
+
+  // --- SEO Feature 4: FAQ Schema ---
+  it("index.html includes FAQPage LD+JSON when faqs provided (SEO-4)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        faqs: [
+          { question: "What are your hours?", answer: "We are open 7am to 5pm daily." },
+          { question: "Do you take bookings?", answer: "Yes, bookings are welcome." },
+        ],
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('"FAQPage"');
+    expect(html).toContain('"Question"');
+    expect(html).toContain("What are your hours?");
+    expect(html).toContain("We are open 7am to 5pm daily.");
+  });
+
+  it("index.html includes details/summary FAQ accordion when faqs provided (SEO-4)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        faqs: [{ question: "Is parking available?", answer: "Yes, free parking on site." }],
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
+    expect(html).toContain("Is parking available?");
+    expect(html).toContain("faq-section");
+  });
+
+  it("index.html has no FAQ section when faqs not provided (SEO-4)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).not.toContain('"FAQPage"');
+    expect(html).not.toContain("faq-section");
+  });
+
+  // --- SEO Feature 5: Sitemap with lastmod ---
+  it("sitemap.xml includes lastmod with today's date (SEO-5)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const sitemap = readFileSync(join(outputDir, "sitemap.xml"), "utf-8");
+    const today = new Date().toISOString().split("T")[0];
+    expect(sitemap).toContain(`<lastmod>${today}</lastmod>`);
+  });
+
+  it("sitemap.xml includes changefreq and priority for index.html (SEO-5)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const sitemap = readFileSync(join(outputDir, "sitemap.xml"), "utf-8");
+    expect(sitemap).toContain("<changefreq>weekly</changefreq>");
+    expect(sitemap).toContain("<priority>1.0</priority>");
+  });
+
+  it("sitemap.xml gives about.html priority 0.8 and monthly changefreq (SEO-5)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const sitemap = readFileSync(join(outputDir, "sitemap.xml"), "utf-8");
+    expect(sitemap).toContain("<priority>0.8</priority>");
+    expect(sitemap).toContain("<changefreq>monthly</changefreq>");
+  });
+
+  // --- SEO Feature 6: Internal Linking ---
+  it("about.html includes 'Get in touch' link to contact.html for service type (SEO-6)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    expect(html).toContain('href="contact.html"');
+    expect(html).toContain("Get in touch");
+  });
+
+  it("contact.html includes 'Learn more about us' link to about.html (SEO-6)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "contact.html"), "utf-8");
+    expect(html).toContain('href="about.html"');
+    expect(html).toContain("Learn more about us");
+  });
+
+  it("about.html does not include contact link for e-commerce type (SEO-6)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, businessType: "e-commerce" as const },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    // e-commerce has no contact.html, so no internal link to it
+    expect(html).not.toContain("Get in touch");
+  });
 });

@@ -80,6 +80,15 @@ export const BuildSiteInput = {
     })
     .optional()
     .describe("Custom CTA section. If omitted, uses hero CTA text as fallback."),
+  faqs: z
+    .array(
+      z.object({
+        question: z.string(),
+        answer: z.string(),
+      })
+    )
+    .optional()
+    .describe("FAQ items — adds FAQ accordion and FAQPage LD+JSON to index.html"),
   siteUrl: z
     .string()
     .optional()
@@ -142,6 +151,7 @@ export async function buildSite(
     trustBadges,
     contactInfo,
     ctaSection: customCta,
+    faqs,
     siteUrl,
     palette,
     fontFamily = "Inter, system-ui, sans-serif",
@@ -364,9 +374,54 @@ ${contactItems.map((item) => `        ${item}`).join("\n")}
       </div>
     </section>`;
 
+  // --- FAQ section (feature 4) ---
+  let faqSectionHtml = "";
+  let faqLdJson: string | undefined;
+  if (faqs && faqs.length > 0) {
+    const faqItems = faqs
+      .map(
+        (faq) =>
+          `      <details class="faq-item">
+        <summary class="faq-question">${escapeHtml(faq.question)}</summary>
+        <div class="faq-answer"><p>${escapeHtml(faq.answer)}</p></div>
+      </details>`
+      )
+      .join("\n");
+
+    faqSectionHtml = `
+    <section class="section faq-section">
+      <div class="container container-narrow">
+        <h2 class="section-title text-center">Frequently Asked Questions</h2>
+        <div class="faq-list">
+${faqItems}
+        </div>
+      </div>
+    </section>`;
+
+    faqLdJson = safeJsonForScript(
+      JSON.stringify(
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.answer,
+            },
+          })),
+        },
+        null,
+        2
+      )
+    );
+  }
+
   // --- index.html (P4: LD+JSON via template, not in bodyContent) ---
   const indexBody = `${heroSection}
 ${servicesHtml}
+${faqSectionHtml}
 ${ctaSectionHtml}`;
 
   const indexHtml = generateHtmlPage({
@@ -384,7 +439,10 @@ ${ctaSectionHtml}`;
     footerContent,
     extraHead: heroExtraHead,
     ogImage: absUrl("images/hero.png"),
+    preloadImage: "images/hero.png",
+    breadcrumbs: [{ name: "Home", url: "index.html" }],
     ldJson: safeJsonForScript(ldJson),
+    faqLdJson,
   });
   writeFileSync(join(outputDir, "index.html"), indexHtml, "utf-8");
   files.push("index.html");
@@ -416,6 +474,11 @@ ${ctaSectionHtml}`;
     2
   );
 
+  // Internal link to contact page (only if contact.html is generated)
+  const aboutContactLink = isServiceLike
+    ? `\n          <p><a href="contact.html">Get in touch →</a></p>`
+    : "";
+
   const aboutBody = `    <div class="page-header">
       <div class="container">
         <h1>About ${safeName}</h1>
@@ -430,7 +493,7 @@ ${ctaSectionHtml}`;
           <h2>Our Story</h2>
           <p>${escapeHtml(aboutStory)}</p>${aboutMission}${aboutTeam}
           <h2>Our Location</h2>
-          <p>We proudly serve clients in ${safeLocation} and the surrounding area.</p>
+          <p>We proudly serve clients in ${safeLocation} and the surrounding area.</p>${aboutContactLink}
         </div>
       </div>
     </section>`;
@@ -447,6 +510,10 @@ ${ctaSectionHtml}`;
     phone: contactInfo?.phone,
     footerContent,
     extraHead: faviconHead,
+    breadcrumbs: [
+      { name: "Home", url: "index.html" },
+      { name: "About", url: "about.html" },
+    ],
     ldJson: safeJsonForScript(aboutLdJson),
   });
   writeFileSync(join(outputDir, "about.html"), aboutHtml, "utf-8");
@@ -579,6 +646,7 @@ ${ctaSectionHtml}`;
             </div>
             <button type="submit" class="btn btn-primary">Send message</button>
           </form>${contactInfoSection}
+          <p class="mt-xl"><a href="about.html">Learn more about us →</a></p>
         </div>
       </div>
     </section>
@@ -596,6 +664,10 @@ ${contactFormScript}`;
       phone: contactInfo?.phone,
       footerContent,
       extraHead: faviconHead,
+      breadcrumbs: [
+        { name: "Home", url: "index.html" },
+        { name: "Contact", url: "contact.html" },
+      ],
       ldJson: safeJsonForScript(contactLdJson),
     });
     writeFileSync(join(outputDir, "contact.html"), contactHtml, "utf-8");
@@ -612,10 +684,27 @@ Sitemap: ${sitemapUrl}
   writeFileSync(join(outputDir, "robots.txt"), robots, "utf-8");
   files.push("robots.txt");
 
-  // --- sitemap.xml (S5: use absolute URLs when siteUrl provided) ---
+  // --- sitemap.xml (S5: use absolute URLs when siteUrl provided, with lastmod/priority) ---
+  const todayIso = new Date().toISOString().split("T")[0];
   const sitemapPages = files
     .filter((f) => f.endsWith(".html"))
-    .map((f) => `  <url><loc>${absUrl(f)}</loc></url>`)
+    .map((f) => {
+      let priority: string;
+      let changefreq: string;
+      if (f === "index.html" || f === "shop.html" || f === "booking.html") {
+        priority = f === "index.html" ? "1.0" : "0.9";
+        changefreq = "weekly";
+      } else {
+        priority = "0.8";
+        changefreq = "monthly";
+      }
+      return `  <url>
+    <loc>${absUrl(f)}</loc>
+    <lastmod>${todayIso}</lastmod>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`;
+    })
     .join("\n");
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

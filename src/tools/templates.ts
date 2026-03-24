@@ -63,6 +63,9 @@ export interface HtmlPageOpts {
   unsplashAttribution?: string;
   ogImage?: string;
   ldJson?: string;
+  faqLdJson?: string;
+  preloadImage?: string;
+  breadcrumbs?: Array<{ name: string; url: string }>;
 }
 
 export function generateStyles(palette: Palette, fontFamily?: string): string {
@@ -435,6 +438,37 @@ h2.footer-col-title,
 .page-header h1 { font-size: 2rem; font-weight: 800; }
 .page-header p { color: var(--color-text-muted); margin-top: var(--spacing-sm); }
 
+/* FAQ accordion */
+.faq-section { background: var(--color-bg-alt); }
+.faq-list { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.faq-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.faq-question {
+  display: block;
+  padding: var(--spacing-lg);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  color: var(--color-text);
+}
+.faq-question::-webkit-details-marker { display: none; }
+.faq-question::after {
+  content: '+';
+  float: right;
+  font-size: 1.25rem;
+  color: var(--color-primary);
+  transition: transform var(--transition);
+}
+details[open] .faq-question::after { content: '−'; }
+.faq-answer {
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
+  color: var(--color-text-muted);
+}
+
 @media (min-width: 768px) {
   .container { padding-inline: var(--spacing-xl); }
   .nav-toggle { display: none; }
@@ -548,6 +582,10 @@ export function generateHtmlPage(opts: HtmlPageOpts): string {
     ? `  <link rel="canonical" href="${opts.canonicalUrl}">\n`
     : "";
 
+  const preloadTag = opts.preloadImage
+    ? `  <link rel="preload" as="image" href="${escapeHtml(opts.preloadImage)}">\n`
+    : "";
+
   // Phone number in nav
   const phoneHtml = opts.phone
     ? `\n      <a href="tel:${escapeHtml(opts.phone.replace(/\s/g, ""))}" class="nav-phone">${escapeHtml(opts.phone)}</a>`
@@ -593,7 +631,7 @@ ${opts.footerContent}
   <meta property="og:description" content="${description}">
   <meta property="og:type" content="website">${opts.ogImage ? `\n  <meta property="og:image" content="${escapeHtml(opts.ogImage)}">` : ""}
   <title>${safeTitle}</title>
-${canonicalTag}  <link rel="stylesheet" href="${cssFile}">
+${canonicalTag}${preloadTag}  <link rel="stylesheet" href="${cssFile}">
 ${extraCssTags ? extraCssTags + "\n" : ""}${opts.extraHead ?? ""}
 </head>
 <body>
@@ -624,6 +662,6 @@ ${opts.bodyContent}
 ${footerHtml}
 
   <script src="${jsFile}" defer></script>
-${extraJsTags ? extraJsTags + "\n" : ""}${opts.ldJson ? `  <script type="application/ld+json">\n${opts.ldJson}\n  </script>\n` : ""}</body>
+${extraJsTags ? extraJsTags + "\n" : ""}${opts.ldJson ? `  <script type="application/ld+json">\n${opts.ldJson}\n  </script>\n` : ""}${opts.faqLdJson ? `  <script type="application/ld+json">\n${opts.faqLdJson}\n  </script>\n` : ""}${opts.breadcrumbs && opts.breadcrumbs.length > 0 ? `  <script type="application/ld+json">\n${safeJsonForScript(JSON.stringify({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: opts.breadcrumbs.map((b, i) => ({ "@type": "ListItem", position: i + 1, name: b.name, item: b.url })) }, null, 2))}\n  </script>\n` : ""}</body>
 </html>`;
 }
