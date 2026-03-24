@@ -26,10 +26,10 @@ describe("Palette type", () => {
 });
 
 describe("createImageProvider", () => {
-  it("returns imagen-4.0-fast provider when google apiKey is set", () => {
+  it("returns nano-banana-2 provider when google apiKey is set", () => {
     const config = ConfigSchema.parse({ google: { apiKey: "test-key" } });
     const provider = createImageProvider(config);
-    expect(provider.name).toBe("imagen-4.0-fast");
+    expect(provider.name).toBe("nano-banana-2");
   });
 
   it("returns unsplash provider when only unsplash accessKey is set", () => {

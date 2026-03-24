@@ -9,22 +9,28 @@ interface NamedImageProvider extends ImageProvider {
 export function createImageProvider(config: Config): NamedImageProvider {
   if (config.google.apiKey) {
     return {
-      name: "imagen-4.0-fast",
+      name: "nano-banana-2",
       async generate(prompt: string, outputPath: string): Promise<string> {
         const { GoogleGenAI } = await import("@google/genai");
         const ai = new GoogleGenAI({ apiKey: config.google.apiKey });
-        const response = await ai.models.generateImages({
-          model: "imagen-4.0-fast-generate-001",
-          prompt,
-          config: { numberOfImages: 1 },
+        const safePrompt = prompt + ". Do not include any text, words, letters, or watermarks in the image.";
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-image-preview",
+          contents: safePrompt,
+          config: {
+            responseModalities: ["IMAGE"],
+          },
         });
-        if (response.generatedImages?.[0]?.image?.imageBytes) {
-          mkdirSync(dirname(outputPath), { recursive: true });
-          const buffer = Buffer.from(
-            response.generatedImages[0].image.imageBytes as string,
-            "base64"
-          );
-          writeFileSync(outputPath, buffer);
+        const parts = response.candidates?.[0]?.content?.parts;
+        if (parts) {
+          for (const part of parts) {
+            if (part.inlineData?.data) {
+              mkdirSync(dirname(outputPath), { recursive: true });
+              const buffer = Buffer.from(part.inlineData.data, "base64");
+              writeFileSync(outputPath, buffer);
+              break;
+            }
+          }
         }
         return outputPath;
       },
