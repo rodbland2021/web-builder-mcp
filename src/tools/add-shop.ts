@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Config, ImageProvider } from "../types.js";
-import { generateHtmlPage, escapeHtml, safeJsonForScript } from "./templates.js";
+import { generateHtmlPage, escapeHtml, safeJsonForScript, updateSitemap } from "./templates.js";
 import { createImageProvider } from "./image-generator.js";
 
 export const AddShopInput = {
@@ -492,6 +492,7 @@ export async function addShop(
   let shopNavLinks: Array<{ href: string; label: string }> | undefined;
   let shopBusinessName: string | undefined;
   let shopLang: string | undefined;
+  let shopPhone: string | undefined;
   const indexPath = join(siteDir, "index.html");
   if (existsSync(indexPath)) {
     try {
@@ -500,6 +501,8 @@ export async function addShop(
       if (logoMatch) shopBusinessName = logoMatch[1];
       const langMatch = indexContent.match(/<html[^>]+lang="([^"]+)"/);
       if (langMatch) shopLang = langMatch[1];
+      const phoneMatch = indexContent.match(/class="nav-phone">([^<]+)</);
+      if (phoneMatch) shopPhone = phoneMatch[1];
       // Extract nav links from existing page
       const linkMatches = [...indexContent.matchAll(/class="nav-links"[\s\S]*?<\/ul>/g)];
       if (linkMatches.length > 0) {
@@ -565,9 +568,11 @@ ${safeJsonForScript(shopLdJson)}
     description: "Shop our products",
     businessName: shopBusinessName,
     navLinks: shopNavLinks,
+    phone: shopPhone,
     extraCss: ["shop.css"],
     extraJs: ["shop.js"],
     canonicalUrl: "shop.html",
+    extraHead: '  <link rel="icon" href="favicon.svg" type="image/svg+xml">\n',
   });
   writeFileSync(join(siteDir, "shop.html"), shopHtml, "utf-8");
   files.push("shop.html");
@@ -657,6 +662,9 @@ compatibility_date = "2024-01-01"
 `;
   writeFileSync(join(siteDir, "workers", "shop-api", "wrangler.toml"), wranglerToml, "utf-8");
   files.push("workers/shop-api/wrangler.toml");
+
+  // Update sitemap with shop.html
+  updateSitemap(siteDir, "shop.html");
 
   return {
     files,

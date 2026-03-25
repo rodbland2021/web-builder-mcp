@@ -588,4 +588,95 @@ describe("buildSite", () => {
     // e-commerce has no contact.html, so no internal link to it
     expect(html).not.toContain("Get in touch");
   });
+
+  // --- M2: og:url with siteUrl ---
+  it("includes og:url when siteUrl is provided (M2)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, siteUrl: "https://sunrise.cafe" },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain('og:url');
+    expect(html).toContain("https://sunrise.cafe/index.html");
+  });
+
+  it("omits og:url when siteUrl is not provided (M2)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).not.toContain("og:url");
+  });
+
+  // --- S2: About image prompt is business-specific ---
+  it("about image uses business-specific prompt (S2)", async () => {
+    // This tests the prompt passed to provider.generate — we can verify by checking
+    // the mock provider receives a prompt containing the business name and location
+    const prompts: string[] = [];
+    const trackingProvider = {
+      name: "mock" as const,
+      async generate(prompt: string, outputPath: string): Promise<string> {
+        prompts.push(prompt);
+        return provider.generate(prompt, outputPath);
+      },
+    };
+    await buildSite(
+      { ...minimalInput, outputDir, about: { story: "Our story" } },
+      { imageProvider: trackingProvider }
+    );
+    const aboutPrompt = prompts.find(p => p.includes("about") || p.includes("Interior"));
+    expect(aboutPrompt).toBeDefined();
+    expect(aboutPrompt).toContain("Sunrise Cafe");
+    expect(aboutPrompt).toContain("Melbourne");
+  });
+
+  // --- S3: Contact form post-submission CTA link ---
+  it("contact form success includes back-to-home link (S3)", async () => {
+    await buildSite({ ...minimalInput, outputDir }, { imageProvider: provider });
+    const html = readFileSync(join(outputDir, "contact.html"), "utf-8");
+    expect(html).toContain('href="index.html"');
+    expect(html).toContain("Back to home");
+  });
+
+  // --- S6: Contact page noscript ---
+  it("contact.html includes noscript fallback (S6)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        contactInfo: { phone: "1300 123 456", email: "info@test.com" },
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "contact.html"), "utf-8");
+    expect(html).toContain("<noscript>");
+    expect(html).toContain("JavaScript is required");
+    expect(html).toContain("1300 123 456");
+  });
+
+  // --- S7: LocalBusiness schema with streetAddress ---
+  it("LD+JSON includes streetAddress when address provided (S7)", async () => {
+    await buildSite(
+      {
+        ...minimalInput,
+        outputDir,
+        contactInfo: { address: "123 Collins St, Melbourne" },
+      },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "index.html"), "utf-8");
+    expect(html).toContain("streetAddress");
+    expect(html).toContain("123 Collins St, Melbourne");
+  });
+
+  // --- P8: About page main image is not lazy-loaded ---
+  it("about.html main image is not lazy-loaded (P8)", async () => {
+    await buildSite(
+      { ...minimalInput, outputDir, about: { story: "Our story" } },
+      { imageProvider: provider }
+    );
+    const html = readFileSync(join(outputDir, "about.html"), "utf-8");
+    // Find the about-photo img tag and ensure it does NOT have loading="lazy"
+    const aboutImgMatch = html.match(/<img[^>]*about-photo[^>]*>/);
+    expect(aboutImgMatch).toBeTruthy();
+    expect(aboutImgMatch![0]).not.toContain('loading="lazy"');
+  });
 });

@@ -103,4 +103,38 @@ describe("addBooking", () => {
     expect(html).toContain("0412 345 678");
     expect(html).toContain("tel:");
   });
+
+  // --- M6: Booking form shows error on API failure ---
+  it("book.js catch block shows error, not success (M6)", async () => {
+    await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
+    const js = readFileSync(join(siteDir, "book.js"), "utf-8");
+    // Catch block should call showError, not show success
+    expect(js).toContain("showError(");
+    expect(js).toContain("could not confirm your booking");
+    // Should NOT show success unconditionally after the try/catch
+    expect(js).not.toContain("// Show success regardless");
+  });
+
+  // --- M7: Booking page includes favicon ---
+  it("book.html includes favicon link (M7)", async () => {
+    await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
+    const html = readFileSync(join(siteDir, "book.html"), "utf-8");
+    expect(html).toContain('rel="icon" href="favicon.svg"');
+  });
+
+  // --- M4: Booking updates sitemap ---
+  it("booking updates existing sitemap.xml (M4)", async () => {
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>index.html</loc>
+    <lastmod>2026-01-01</lastmod>
+  </url>
+</urlset>
+`;
+    writeFileSync(join(siteDir, "sitemap.xml"), sitemap);
+    await addBooking({ siteDir, services: ["Haircut"] }, { imageProvider: mockProvider });
+    const updatedSitemap = readFileSync(join(siteDir, "sitemap.xml"), "utf-8");
+    expect(updatedSitemap).toContain("book.html");
+  });
 });

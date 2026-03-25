@@ -282,5 +282,116 @@ describe("templates", () => {
       expect(css).toContain(".nav-links a.active");
       expect(css).toContain("font-weight: 700");
     });
+
+    // --- M1: Mobile header overflow ---
+    it("hides nav-cta on mobile (M1)", () => {
+      const css = generateStyles(testPalette);
+      // Base .nav-cta should have display: none
+      const navCtaStart = css.indexOf(".nav-cta {");
+      const navCtaEnd = css.indexOf("}", navCtaStart);
+      const navCtaBlock = css.substring(navCtaStart, navCtaEnd);
+      expect(navCtaBlock).toContain("display: none");
+    });
+
+    it("shows nav-cta on desktop (M1)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain(".nav-cta { display: inline-flex; }");
+    });
+
+    it("nav-logo truncates gracefully on mobile (M1)", () => {
+      const css = generateStyles(testPalette);
+      const navLogoStart = css.indexOf(".nav-logo {");
+      const navLogoEnd = css.indexOf("}", navLogoStart);
+      const navLogoBlock = css.substring(navLogoStart, navLogoEnd);
+      expect(navLogoBlock).toContain("text-overflow: ellipsis");
+      expect(navLogoBlock).toContain("overflow: hidden");
+      expect(navLogoBlock).toContain("max-width: 40%");
+    });
+
+    it("removes nav-logo max-width on desktop (M1)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain(".nav-logo { max-width: none; }");
+    });
+
+    // --- S5: Footer uses CSS custom properties ---
+    it("footer uses CSS custom properties not hardcoded colours (S5)", () => {
+      const css = generateStyles(testPalette);
+      const footerStart = css.indexOf(".site-footer {");
+      const footerEnd = css.indexOf("}", footerStart);
+      const footerBlock = css.substring(footerStart, footerEnd);
+      expect(footerBlock).toContain("var(--color-footer-bg");
+      expect(footerBlock).toContain("var(--color-footer-text");
+    });
+
+    it("footer heading uses CSS custom property (S5)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain("var(--color-footer-heading");
+    });
+
+    // --- S9: prefers-reduced-motion ---
+    it("includes prefers-reduced-motion media query (S9)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain("prefers-reduced-motion: reduce");
+      expect(css).toContain("scroll-behavior: auto");
+    });
+
+    // --- P5: --color-accent is used ---
+    it("uses --color-accent for FAQ marker (P5)", () => {
+      const css = generateStyles(testPalette);
+      const faqAfterStart = css.indexOf(".faq-question::after");
+      const faqAfterEnd = css.indexOf("}", faqAfterStart);
+      const faqAfterBlock = css.substring(faqAfterStart, faqAfterEnd);
+      expect(faqAfterBlock).toContain("var(--color-accent)");
+    });
+
+    it("uses --color-accent for trust badge hover (P5)", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain(".trust-badge:hover");
+      expect(css).toContain("var(--color-accent)");
+    });
+  });
+
+  describe("generateHtmlPage og:url and font loading", () => {
+    // --- M2: og:url ---
+    it("includes og:url meta tag when ogUrl is provided (M2)", () => {
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "",
+        ogUrl: "https://example.com/index.html",
+      });
+      expect(html).toContain('property="og:url"');
+      expect(html).toContain("https://example.com/index.html");
+    });
+
+    it("omits og:url when ogUrl not provided (M2)", () => {
+      const html = generateHtmlPage({ title: "Test", bodyContent: "" });
+      expect(html).not.toContain("og:url");
+    });
+
+    // --- P6: Google Fonts loading ---
+    it("adds Google Fonts link for known font family (P6)", () => {
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "",
+        fontFamily: "DM Sans, sans-serif",
+      });
+      expect(html).toContain("fonts.googleapis.com");
+      expect(html).toContain("DM+Sans");
+      expect(html).toContain("display=swap");
+    });
+
+    it("does not add Google Fonts link for system-ui (P6)", () => {
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "",
+        fontFamily: "system-ui, sans-serif",
+      });
+      expect(html).not.toContain("fonts.googleapis.com");
+    });
+
+    it("does not add Google Fonts link when fontFamily not provided (P6)", () => {
+      const html = generateHtmlPage({ title: "Test", bodyContent: "" });
+      expect(html).not.toContain("fonts.googleapis.com");
+    });
   });
 });

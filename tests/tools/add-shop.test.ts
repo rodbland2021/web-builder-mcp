@@ -138,4 +138,61 @@ describe("addShop", () => {
     const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
     expect(html).toContain('"priceCurrency": "USD"');
   });
+
+  // --- M7: Shop page includes favicon ---
+  it("shop.html includes favicon link (M7)", async () => {
+    await addShop(
+      { siteDir, products: [{ name: "Test", price: 10 }] },
+      { imageProvider: mockProvider }
+    );
+    const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
+    expect(html).toContain('rel="icon" href="favicon.svg"');
+  });
+
+  // --- S8: Shop preserves phone from index.html ---
+  it("shop.html preserves phone number from index.html (S8)", async () => {
+    const indexHtml = `<!DOCTYPE html>
+<html lang="en-AU">
+<head><title>Test</title></head>
+<body>
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-logo">Test Biz</a>
+      <a href="tel:0412345678" class="nav-phone">0412 345 678</a>
+      <nav><ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+      </ul></nav>
+    </div>
+  </header>
+</body>
+</html>`;
+    writeFileSync(join(siteDir, "index.html"), indexHtml);
+    await addShop(
+      { siteDir, products: [{ name: "Test", price: 10 }] },
+      { imageProvider: mockProvider }
+    );
+    const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
+    expect(html).toContain("nav-phone");
+    expect(html).toContain("0412 345 678");
+  });
+
+  // --- M4: Shop updates sitemap ---
+  it("shop updates existing sitemap.xml (M4)", async () => {
+    // Create a sitemap
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>index.html</loc>
+    <lastmod>2026-01-01</lastmod>
+  </url>
+</urlset>
+`;
+    writeFileSync(join(siteDir, "sitemap.xml"), sitemap);
+    await addShop(
+      { siteDir, products: [{ name: "Test", price: 10 }] },
+      { imageProvider: mockProvider }
+    );
+    const updatedSitemap = readFileSync(join(siteDir, "sitemap.xml"), "utf-8");
+    expect(updatedSitemap).toContain("shop.html");
+  });
 });

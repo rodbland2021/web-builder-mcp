@@ -62,6 +62,7 @@ export interface HtmlPageOpts {
   footerContent?: string;
   unsplashAttribution?: string;
   ogImage?: string;
+  ogUrl?: string;
   ldJson?: string;
   faqLdJson?: string;
   preloadImage?: string;
@@ -170,6 +171,10 @@ a:hover { text-decoration: underline; }
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
 }
 .nav-logo:hover { text-decoration: none; }
 .nav-toggle {
@@ -236,9 +241,9 @@ a:hover { text-decoration: underline; }
 }
 .nav-phone:hover { text-decoration: none; color: var(--color-primary); }
 
-/* Nav CTA */
+/* Nav CTA — hidden on mobile (redundant with hero CTA) */
 .nav-cta {
-  display: inline-flex;
+  display: none;
   align-items: center;
   padding: 0.375rem 1rem;
   background: var(--color-primary);
@@ -321,6 +326,11 @@ a:hover { text-decoration: underline; }
   font-size: 0.875rem;
   background: rgba(255,255,255,0.1);
   color: #fff;
+  transition: background var(--transition), color var(--transition);
+}
+.trust-badge:hover {
+  background: var(--color-accent);
+  color: var(--color-text);
 }
 
 /* Sections */
@@ -360,13 +370,13 @@ a:hover { text-decoration: underline; }
 
 /* Footer */
 .site-footer {
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--color-footer-bg, #1e293b);
+  color: var(--color-footer-text, #94a3b8);
   padding: var(--spacing-3xl) var(--spacing-md) var(--spacing-2xl);
   font-size: 0.875rem;
 }
-.site-footer a { color: #94a3b8; }
-.site-footer a:hover { color: #fff; }
+.site-footer a { color: var(--color-footer-text, #94a3b8); }
+.site-footer a:hover { color: var(--color-footer-heading, #e2e8f0); }
 .footer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -374,7 +384,7 @@ a:hover { text-decoration: underline; }
 }
 h2.footer-col-title,
 .footer-col-title {
-  color: #e2e8f0;
+  color: var(--color-footer-heading, #e2e8f0);
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: var(--spacing-md);
@@ -460,7 +470,7 @@ h2.footer-col-title,
   content: '+';
   float: right;
   font-size: 1.25rem;
-  color: var(--color-primary);
+  color: var(--color-accent);
   transition: transform var(--transition);
 }
 details[open] .faq-question::after { content: '−'; }
@@ -472,6 +482,8 @@ details[open] .faq-question::after { content: '−'; }
 @media (min-width: 768px) {
   .container { padding-inline: var(--spacing-xl); }
   .nav-toggle { display: none; }
+  .nav-logo { max-width: none; }
+  .nav-cta { display: inline-flex; }
   .nav-links {
     display: flex;
     flex-direction: row;
@@ -490,6 +502,11 @@ details[open] .faq-question::after { content: '−'; }
   .hero h1 { font-size: 3.5rem; }
   .feature-grid { grid-template-columns: repeat(3, 1fr); }
   .section-title { font-size: 2.25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
 }
 `;
 }
@@ -551,6 +568,28 @@ export function generateSiteJs(): string {
 
 })();
 `;
+}
+
+/** Known Google Fonts that can be loaded via the Google Fonts CDN. */
+const GOOGLE_FONTS = new Set([
+  "Inter", "DM Sans", "Barlow", "Roboto", "Open Sans", "Lato", "Montserrat",
+  "Poppins", "Raleway", "Nunito", "Source Sans 3", "Work Sans", "Merriweather",
+  "Playfair Display", "Oswald", "PT Sans", "Cabin", "Ubuntu", "Fira Sans",
+  "Manrope", "Space Grotesk", "Plus Jakarta Sans", "Outfit", "Sora", "Lexend",
+]);
+
+/**
+ * Generate a Google Fonts <link> tag for the given font family string.
+ * Returns empty string for system fonts or unknown families.
+ */
+function googleFontLink(fontFamily?: string): string {
+  if (!fontFamily) return "";
+  // Extract the first font name before any fallbacks
+  const primary = fontFamily.split(",")[0].trim().replace(/["']/g, "");
+  if (!primary || primary === "system-ui" || primary === "sans-serif" || primary === "serif") return "";
+  if (!GOOGLE_FONTS.has(primary)) return "";
+  const encoded = primary.replace(/\s+/g, "+");
+  return `  <link rel="preconnect" href="https://fonts.googleapis.com">\n  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encoded}:wght@400;600;700;800&display=swap">\n`;
 }
 
 export function generateHtmlPage(opts: HtmlPageOpts): string {
@@ -621,6 +660,8 @@ ${opts.footerContent}
   </footer>`;
   }
 
+  const fontLink = googleFontLink(opts.fontFamily);
+
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -629,9 +670,9 @@ ${opts.footerContent}
   <meta name="description" content="${description}">
   <meta property="og:title" content="${safeTitle}">
   <meta property="og:description" content="${description}">
-  <meta property="og:type" content="website">${opts.ogImage ? `\n  <meta property="og:image" content="${escapeHtml(opts.ogImage)}">` : ""}
+  <meta property="og:type" content="website">${opts.ogImage ? `\n  <meta property="og:image" content="${escapeHtml(opts.ogImage)}">` : ""}${opts.ogUrl ? `\n  <meta property="og:url" content="${escapeHtml(opts.ogUrl)}">` : ""}
   <title>${safeTitle}</title>
-${canonicalTag}${preloadTag}  <link rel="stylesheet" href="${cssFile}">
+${canonicalTag}${preloadTag}${fontLink}  <link rel="stylesheet" href="${cssFile}">
 ${extraCssTags ? extraCssTags + "\n" : ""}${opts.extraHead ?? ""}
 </head>
 <body>
@@ -664,4 +705,33 @@ ${footerHtml}
   <script src="${jsFile}" defer></script>
 ${extraJsTags ? extraJsTags + "\n" : ""}${opts.ldJson ? `  <script type="application/ld+json">\n${opts.ldJson}\n  </script>\n` : ""}${opts.faqLdJson ? `  <script type="application/ld+json">\n${opts.faqLdJson}\n  </script>\n` : ""}${opts.breadcrumbs && opts.breadcrumbs.length > 0 ? `  <script type="application/ld+json">\n${safeJsonForScript(JSON.stringify({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: opts.breadcrumbs.map((b, i) => ({ "@type": "ListItem", position: i + 1, name: b.name, item: b.url })) }, null, 2))}\n  </script>\n` : ""}</body>
 </html>`;
+}
+
+/**
+ * Update an existing sitemap.xml to include a new page if not already present.
+ * If no sitemap exists, creates a minimal one.
+ */
+export function updateSitemap(siteDir: string, pageFile: string): void {
+  const { readFileSync, writeFileSync, existsSync } = require("fs");
+  const { join } = require("path");
+  const sitemapPath = join(siteDir, "sitemap.xml");
+  const todayIso = new Date().toISOString().split("T")[0];
+
+  if (existsSync(sitemapPath)) {
+    let sitemap = readFileSync(sitemapPath, "utf-8") as string;
+    // Check if page already in sitemap
+    if (sitemap.includes(`>${pageFile}<`) || sitemap.includes(`/${pageFile}<`)) {
+      return; // Already present
+    }
+    // Determine if siteUrl is used (check if existing URLs are absolute)
+    const locMatch = sitemap.match(/<loc>([^<]+)<\/loc>/);
+    let prefix = "";
+    if (locMatch && locMatch[1].startsWith("http")) {
+      const url = new URL(locMatch[1]);
+      prefix = `${url.protocol}//${url.host}/`;
+    }
+    const newEntry = `  <url>\n    <loc>${prefix}${pageFile}</loc>\n    <lastmod>${todayIso}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n</urlset>`;
+    sitemap = sitemap.replace("</urlset>", newEntry);
+    writeFileSync(sitemapPath, sitemap, "utf-8");
+  }
 }

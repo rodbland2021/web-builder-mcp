@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Config, ImageProvider } from "../types.js";
-import { generateHtmlPage, escapeHtml, escapeJsString, safeJsonForScript } from "./templates.js";
+import { generateHtmlPage, escapeHtml, escapeJsString, safeJsonForScript, updateSitemap } from "./templates.js";
 import { createImageProvider } from "./image-generator.js";
 
 export const AddBookingInput = {
@@ -284,18 +284,25 @@ export async function addBooking(
     const btn = document.getElementById('confirm-btn');
     if (btn) btn.disabled = true;
     try {
-      await fetch('/workers/booking-api/notify', {
+      var res = await fetch('/workers/booking-api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(booking),
       });
+      var data = await res.json();
+      if (data.ok) {
+        document.getElementById('booking-form-area').style.display = 'none';
+        var success = document.getElementById('booking-success');
+        if (success) success.classList.add('active');
+      } else {
+        showError(data.error || 'Sorry, we could not confirm your booking. Please call us to book.');
+        if (btn) btn.disabled = false;
+      }
     } catch (err) {
       console.error('Booking submit error:', err);
+      showError('Sorry, we could not confirm your booking. Please call us to book.');
+      if (btn) btn.disabled = false;
     }
-    // Show success regardless (graceful degradation)
-    document.getElementById('booking-form-area').style.display = 'none';
-    const success = document.getElementById('booking-success');
-    if (success) success.classList.add('active');
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -533,7 +540,7 @@ ${safeJsonForScript(bookingLdJson)}
     extraCss: ["book.css"],
     extraJs: ["book.js"],
     canonicalUrl: "book.html",
-    extraHead: `  <style>.booking-hero-bg { background-image: url('images/booking-hero.png'); }</style>`,
+    extraHead: `  <link rel="icon" href="favicon.svg" type="image/svg+xml">\n  <style>.booking-hero-bg { background-image: url('images/booking-hero.png'); }</style>`,
   });
   writeFileSync(join(siteDir, "book.html"), bookHtml, "utf-8");
   files.push("book.html");
@@ -615,6 +622,9 @@ compatibility_date = "2024-01-01"
 `;
   writeFileSync(join(siteDir, "workers", "booking-api", "wrangler.toml"), wranglerToml, "utf-8");
   files.push("workers/booking-api/wrangler.toml");
+
+  // Update sitemap with book.html
+  updateSitemap(siteDir, "book.html");
 
   return { files, siteDir, imagesGenerated: 1 };
 }

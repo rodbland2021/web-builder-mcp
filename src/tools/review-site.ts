@@ -53,8 +53,9 @@ export function reviewSite(siteDir: string): ReviewSiteResult {
         : undefined,
   });
 
-  // No !important
-  const hasImportant = /!important/.test(allCss);
+  // No !important (exempt prefers-reduced-motion which requires !important per best practice)
+  const cssWithoutReducedMotion = allCss.replace(/@media\s*\(prefers-reduced-motion[^{]*\{[^}]*\{[^}]*\}[^}]*\}/g, "");
+  const hasImportant = /!important/.test(cssWithoutReducedMotion);
   checks.push({
     name: "no-css-important",
     passed: !hasImportant,

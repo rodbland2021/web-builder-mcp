@@ -189,10 +189,10 @@ export async function buildSite(
     }
   }
 
-  // About image
+  // About image (S2: business-specific prompt instead of generic)
   if (about) {
     await provider.generate(
-      `About page image for ${businessName}`,
+      `Interior of ${businessName} in ${location}, showing the space and team in action, professional photography`,
       join(outputDir, "images/about.png")
     );
     imagesGenerated++;
@@ -248,6 +248,7 @@ export async function buildSite(
     address: {
       "@type": "PostalAddress",
       addressLocality: location,
+      ...(contactInfo?.address ? { streetAddress: contactInfo.address } : {}),
     },
     ...(contactInfo?.phone ? { telephone: contactInfo.phone } : {}),
     ...(contactInfo?.email ? { email: contactInfo.email } : {}),
@@ -439,6 +440,7 @@ ${ctaSectionHtml}`;
     footerContent,
     extraHead: heroExtraHead,
     ogImage: absUrl("images/hero.png"),
+    ogUrl: siteUrl ? absUrl("index.html") : undefined,
     preloadImage: "images/hero.png",
     breadcrumbs: [{ name: "Home", url: "index.html" }],
     ldJson: safeJsonForScript(ldJson),
@@ -489,7 +491,7 @@ ${ctaSectionHtml}`;
     <section class="section">
       <div class="container">
         <div class="flow container-narrow">
-          <img src="images/about.png" alt="About ${safeName}" class="about-photo" loading="lazy">
+          <img src="images/about.png" alt="About ${safeName}" class="about-photo">
           <h2>Our Story</h2>
           <p>${escapeHtml(aboutStory)}</p>${aboutMission}${aboutTeam}
           <h2>Our Location</h2>
@@ -622,10 +624,12 @@ ${ctaSectionHtml}`;
     <section class="section">
       <div class="container">
         <div class="container-form">
+          <noscript><p>JavaScript is required for this form.${contactInfo?.phone ? ` Please call us at <a href="tel:${escapeHtml(contactInfo.phone.replace(/\s/g, ""))}">${escapeHtml(contactInfo.phone)}</a>` : ""}${contactInfo?.email ? ` or email <a href="mailto:${escapeHtml(contactInfo.email)}">${escapeHtml(contactInfo.email)}</a>` : ""} to get in touch.</p></noscript>
           <p class="required-note"><span class="required-star">*</span> Required fields</p>
           <div id="contact-error" class="form-error" role="alert"></div>
           <div id="contact-success" class="form-success" role="status">
             Thank you! Your message has been sent. We'll be in touch soon.
+            <p class="mt-xl"><a href="index.html" class="btn btn-primary">Back to home</a></p>
           </div>
           <form id="contact-form" novalidate>
             <div class="form-group">
