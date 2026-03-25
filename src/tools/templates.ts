@@ -67,6 +67,7 @@ export interface HtmlPageOpts {
   faqLdJson?: string;
   preloadImage?: string;
   breadcrumbs?: Array<{ name: string; url: string }>;
+  visibleBreadcrumbs?: Array<{ label: string; href?: string }>;
 }
 
 export function generateStyles(palette: Palette, fontFamily?: string): string {
@@ -476,6 +477,30 @@ details[open] .faq-question::after { content: '−'; }
   color: var(--color-text-muted);
 }
 
+/* Breadcrumbs */
+.breadcrumbs {
+  background: var(--color-bg-alt);
+  padding: var(--spacing-sm) 0;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.breadcrumbs ol {
+  display: flex;
+  gap: var(--spacing-sm);
+  list-style: none;
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding-inline: var(--spacing-md);
+}
+.breadcrumbs li + li::before {
+  content: "›";
+  margin-right: var(--spacing-sm);
+  color: var(--color-text-muted);
+}
+.breadcrumbs a { color: var(--color-text-muted); }
+.breadcrumbs a:hover { color: var(--color-primary); text-decoration: underline; }
+.breadcrumbs [aria-current="page"] { color: var(--color-text); font-weight: 600; }
+
 @media (min-width: 768px) {
   .container { padding-inline: var(--spacing-xl); }
   .nav-toggle { display: none; }
@@ -661,6 +686,24 @@ ${opts.footerContent}
 
   const fontLink = googleFontLink(opts.fontFamily);
 
+  // Visible breadcrumb nav (between header and main)
+  let breadcrumbNavHtml = "";
+  if (opts.visibleBreadcrumbs && opts.visibleBreadcrumbs.length > 0) {
+    const items = opts.visibleBreadcrumbs.map((crumb, i) => {
+      const isLast = i === opts.visibleBreadcrumbs!.length - 1;
+      if (isLast) {
+        return `    <li aria-current="page">${escapeHtml(crumb.label)}</li>`;
+      }
+      return `    <li><a href="${escapeHtml(crumb.href ?? "#")}">${escapeHtml(crumb.label)}</a></li>`;
+    }).join("\n");
+    breadcrumbNavHtml = `
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol>
+${items}
+    </ol>
+  </nav>`;
+  }
+
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -694,7 +737,7 @@ ${navItems}
       </nav>${ctaHtml}
     </div>
   </header>
-
+${breadcrumbNavHtml}
   <main id="main">
 ${opts.bodyContent}
   </main>

@@ -218,6 +218,83 @@ describe("templates", () => {
     });
   });
 
+  describe("generateHtmlPage visibleBreadcrumbs", () => {
+    it("renders breadcrumb nav when visibleBreadcrumbs is provided", () => {
+      const html = generateHtmlPage({
+        title: "About",
+        bodyContent: "<p>About us</p>",
+        visibleBreadcrumbs: [
+          { label: "Home", href: "index.html" },
+          { label: "About" },
+        ],
+      });
+      expect(html).toContain('<nav class="breadcrumbs"');
+      expect(html).toContain('aria-label="Breadcrumb"');
+    });
+
+    it("does NOT render breadcrumb nav when visibleBreadcrumbs is not provided", () => {
+      const html = generateHtmlPage({ title: "Home", bodyContent: "<p>Home</p>" });
+      expect(html).not.toContain('class="breadcrumbs"');
+    });
+
+    it("last breadcrumb item has aria-current=page and no href", () => {
+      const html = generateHtmlPage({
+        title: "About",
+        bodyContent: "",
+        visibleBreadcrumbs: [
+          { label: "Home", href: "index.html" },
+          { label: "About" },
+        ],
+      });
+      expect(html).toContain('aria-current="page"');
+      // The last item should not be a link
+      const lastItem = html.match(/<li aria-current="page">([^<]+)<\/li>/);
+      expect(lastItem).not.toBeNull();
+      expect(lastItem![1]).toBe("About");
+    });
+
+    it("earlier breadcrumb items are rendered as links", () => {
+      const html = generateHtmlPage({
+        title: "About",
+        bodyContent: "",
+        visibleBreadcrumbs: [
+          { label: "Home", href: "index.html" },
+          { label: "About" },
+        ],
+      });
+      expect(html).toContain('<a href="index.html">Home</a>');
+    });
+
+    it("breadcrumb nav appears between header and main", () => {
+      const html = generateHtmlPage({
+        title: "About",
+        bodyContent: "",
+        visibleBreadcrumbs: [
+          { label: "Home", href: "index.html" },
+          { label: "About" },
+        ],
+      });
+      const headerEnd = html.indexOf("</header>");
+      const breadcrumbPos = html.indexOf('class="breadcrumbs"');
+      const mainStart = html.indexOf('<main id="main">');
+      expect(breadcrumbPos).toBeGreaterThan(headerEnd);
+      expect(breadcrumbPos).toBeLessThan(mainStart);
+    });
+
+    it("escapes HTML in breadcrumb labels", () => {
+      const html = generateHtmlPage({
+        title: "Test",
+        bodyContent: "",
+        visibleBreadcrumbs: [
+          { label: "Home", href: "index.html" },
+          { label: "About <Us>" },
+        ],
+      });
+      expect(html).toContain("About &lt;Us&gt;");
+      expect(html).not.toContain("About <Us>");
+    });
+  });
+
   describe("generateStyles CSS fixes", () => {
     // --- M6: Form focus ring uses palette colour ---
     it("uses color-mix for form focus ring instead of hardcoded blue (M6)", () => {
@@ -348,6 +425,13 @@ describe("templates", () => {
       const css = generateStyles(testPalette);
       expect(css).toContain(".trust-badge");
       expect(css).not.toContain(".trust-badge:hover");
+    });
+
+    it("includes .breadcrumbs CSS", () => {
+      const css = generateStyles(testPalette);
+      expect(css).toContain(".breadcrumbs");
+      expect(css).toContain(".breadcrumbs ol");
+      expect(css).toContain('.breadcrumbs [aria-current="page"]');
     });
   });
 

@@ -542,6 +542,10 @@ ${safeJsonForScript(bookingLdJson)}
     extraJs: ["book.js"],
     canonicalUrl: "book.html",
     extraHead: `  <link rel="icon" href="favicon.svg" type="image/svg+xml">\n  <style>.booking-hero-bg { background-image: url('images/booking-hero.png'); }</style>`,
+    visibleBreadcrumbs: [
+      { label: "Home", href: "index.html" },
+      { label: "Book" },
+    ],
   });
   writeFileSync(join(siteDir, "book.html"), bookHtml, "utf-8");
   files.push("book.html");

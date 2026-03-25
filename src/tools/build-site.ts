@@ -516,6 +516,10 @@ ${ctaSectionHtml}`;
       { name: "Home", url: "index.html" },
       { name: "About", url: "about.html" },
     ],
+    visibleBreadcrumbs: [
+      { label: "Home", href: "index.html" },
+      { label: "About" },
+    ],
     ldJson: safeJsonForScript(aboutLdJson),
   });
   writeFileSync(join(outputDir, "about.html"), aboutHtml, "utf-8");
@@ -671,6 +675,10 @@ ${contactFormScript}`;
       breadcrumbs: [
         { name: "Home", url: "index.html" },
         { name: "Contact", url: "contact.html" },
+      ],
+      visibleBreadcrumbs: [
+        { label: "Home", href: "index.html" },
+        { label: "Contact" },
       ],
       ldJson: safeJsonForScript(contactLdJson),
     });

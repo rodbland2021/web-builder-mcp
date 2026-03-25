@@ -62,21 +62,23 @@ export async function addShop(
   mkdirSync(join(siteDir, "images"), { recursive: true });
   mkdirSync(join(siteDir, "workers", "shop-api"), { recursive: true });
 
-  // Generate product images
-  const productsWithIds = await Promise.all(
-    products.map(async (p, i) => {
-      const slug = slugify(p.name);
+  // Generate product images in batches of 4
+  const BATCH_SIZE = 4;
+  const productsWithIds: Array<{ id: string; slug: string } & Product> = products.map((p, i) => {
+    const slug = slugify(p.name);
+    return { id: `prod-${slug}-${i + 1}`, slug, ...p };
+  });
+
+  for (let i = 0; i < productsWithIds.length; i += BATCH_SIZE) {
+    const batch = productsWithIds.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(async (product) => {
+      const slug = product.slug;
       const imgPath = join(siteDir, "images", `product-${slug}.png`);
-      const prompt = `Professional product photo of ${p.name}${p.description ? ` — ${p.description}` : ""}. Clean white background, studio lighting, commercial product photography`;
+      const prompt = `Professional product photo of ${product.name}${product.description ? ` — ${product.description}` : ""}. Clean white background, studio lighting, commercial product photography`;
       await imageProvider.generate(prompt, imgPath);
       files.push(`images/product-${slug}.png`);
-      return {
-        id: `prod-${slug}-${i + 1}`,
-        slug,
-        ...p,
-      };
-    })
-  );
+    }));
+  }
 
   // --- products.json ---
   writeFileSync(join(siteDir, "products.json"), JSON.stringify(productsWithIds, null, 2), "utf-8");
@@ -573,6 +575,10 @@ ${safeJsonForScript(shopLdJson)}
     extraJs: ["shop.js"],
     canonicalUrl: "shop.html",
     extraHead: '  <link rel="icon" href="favicon.svg" type="image/svg+xml">\n',
+    visibleBreadcrumbs: [
+      { label: "Home", href: "index.html" },
+      { label: "Shop" },
+    ],
   });
   writeFileSync(join(siteDir, "shop.html"), shopHtml, "utf-8");
   files.push("shop.html");
