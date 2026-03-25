@@ -162,16 +162,19 @@ export function adaCheck(siteDir: string): AdaCheckResult {
   }
 
   // Check critical text-on-background pairs
-  const palettePairs: Array<{ fg: string; bg: string; label: string; large?: boolean }> = [
+  const palettePairs: Array<{ fg: string; bg: string; label: string; large?: boolean; fgLiteral?: string }> = [
     { fg: "text", bg: "bg", label: "text on bg" },
     { fg: "text-muted", bg: "bg", label: "textMuted on bg" },
     { fg: "text", bg: "surface", label: "text on surface" },
     { fg: "text-muted", bg: "surface", label: "textMuted on surface" },
     { fg: "text", bg: "bg-alt", label: "text on bgAlt" },
+    { fg: "primary", bg: "bg", label: "primary (links) on bg" },
+    { fgLiteral: "#ffffff", fg: "", bg: "primary", label: "white on primary (buttons)" },
+    { fgLiteral: "#ffffff", fg: "", bg: "primary-dark", label: "white on primaryDark (hover)" },
   ];
 
   for (const pair of palettePairs) {
-    const fgHex = paletteVars[pair.fg];
+    const fgHex = pair.fgLiteral || paletteVars[pair.fg];
     const bgHex = paletteVars[pair.bg];
     if (fgHex && bgHex) {
       try {
