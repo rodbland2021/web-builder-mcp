@@ -37,7 +37,7 @@ describe("templates", () => {
     it("includes .hero with min-height", () => {
       const css = generateStyles(testPalette);
       expect(css).toContain(".hero");
-      expect(css).toContain("min-height: calc(100vh - var(--nav-height))");
+      expect(css).toContain("min-height: min(75vh, 600px)");
     });
 
     it("includes .hero-overlay", () => {
@@ -344,10 +344,10 @@ describe("templates", () => {
       expect(faqAfterBlock).toContain("var(--color-accent)");
     });
 
-    it("uses --color-accent for trust badge hover (P5)", () => {
+    it("trust badges have no hover state (not clickable)", () => {
       const css = generateStyles(testPalette);
-      expect(css).toContain(".trust-badge:hover");
-      expect(css).toContain("var(--color-accent)");
+      expect(css).toContain(".trust-badge");
+      expect(css).not.toContain(".trust-badge:hover");
     });
   });
 

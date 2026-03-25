@@ -287,7 +287,7 @@ a:hover { text-decoration: underline; }
 
 /* Hero — full-bleed with background image support */
 .hero {
-  min-height: calc(100vh - var(--nav-height));
+  min-height: min(75vh, 600px);
   background-size: cover;
   background-position: center;
   position: relative;
@@ -327,11 +327,6 @@ a:hover { text-decoration: underline; }
   font-size: 0.875rem;
   background: rgba(255,255,255,0.1);
   color: #fff;
-  transition: background var(--transition), color var(--transition);
-}
-.trust-badge:hover {
-  background: var(--color-accent);
-  color: var(--color-text);
 }
 
 /* Sections */
