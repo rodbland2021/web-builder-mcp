@@ -176,6 +176,34 @@ describe("addShop", () => {
     expect(html).toContain("0412 345 678");
   });
 
+  // --- Batch image generation ---
+  it("generates all product images with 6 products (batch size 4)", async () => {
+    const products = [
+      { name: "Product One", price: 10 },
+      { name: "Product Two", price: 11 },
+      { name: "Product Three", price: 12 },
+      { name: "Product Four", price: 13 },
+      { name: "Product Five", price: 14 },
+      { name: "Product Six", price: 15 },
+    ];
+    await addShop({ siteDir, products }, { imageProvider: mockProvider });
+    for (const p of products) {
+      const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      expect(existsSync(join(siteDir, "images", `product-${slug}.png`))).toBe(true);
+    }
+  });
+
+  // --- Visible breadcrumbs on shop page ---
+  it("shop.html includes visible breadcrumb nav", async () => {
+    await addShop(
+      { siteDir, products: [{ name: "Test", price: 10 }] },
+      { imageProvider: mockProvider }
+    );
+    const html = readFileSync(join(siteDir, "shop.html"), "utf-8");
+    expect(html).toContain('<nav class="breadcrumbs"');
+    expect(html).toContain('aria-current="page"');
+  });
+
   // --- M4: Shop updates sitemap ---
   it("shop updates existing sitemap.xml (M4)", async () => {
     // Create a sitemap
