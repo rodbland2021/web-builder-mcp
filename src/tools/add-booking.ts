@@ -136,7 +136,7 @@ export async function addBooking(
   transition: border-color var(--transition), background var(--transition);
 }
 .service-option:hover { border-color: var(--color-primary); background: var(--color-bg-alt); }
-.service-option.selected { border-color: var(--color-primary); background: rgba(37,99,235,0.05); }
+.service-option.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
 .service-option input[type="radio"] { accent-color: var(--color-primary); }
 .service-label { font-weight: 600; }
 
@@ -157,11 +157,12 @@ export async function addBooking(
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
   text-align: center;
-  transition: border-color var(--transition), background var(--transition);
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
 }
 .date-btn:hover, .time-btn:hover { border-color: var(--color-primary); }
 .date-btn.selected, .time-btn.selected { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }

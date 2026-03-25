@@ -107,6 +107,7 @@ export function generateStyles(palette: Palette, fontFamily?: string): string {
 
 /* Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
 html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-family);
