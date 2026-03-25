@@ -272,6 +272,7 @@ a:hover { text-decoration: underline; }
 }
 .btn:hover {
   transform: translateY(-1px);
+  text-decoration: none;
 }
 .btn-primary {
   background: var(--color-primary);
@@ -318,7 +319,7 @@ a:hover { text-decoration: underline; }
   gap: 0.75rem;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: var(--spacing-lg);
+  margin-top: var(--spacing-2xl);
 }
 .trust-badge {
   border: 1px solid rgba(255,255,255,0.3);
