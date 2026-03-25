@@ -496,12 +496,14 @@ details[open] .faq-question::after { content: '−'; }
   .nav-links a { padding: var(--spacing-xs) var(--spacing-md); }
   .hero h1 { font-size: 2.75rem; }
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
+  .feature-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; max-width: calc(50% - var(--spacing-lg) / 2); justify-self: center; }
   .section-title { font-size: 2rem; }
 }
 
 @media (min-width: 1280px) {
   .hero h1 { font-size: 3.5rem; }
   .feature-grid { grid-template-columns: repeat(3, 1fr); }
+  .feature-grid > :last-child:nth-child(odd) { grid-column: auto; max-width: none; justify-self: auto; }
   .section-title { font-size: 2.25rem; }
 }
 
